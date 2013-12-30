@@ -1,0 +1,383 @@
+/*
+* COMPILED WITH LESS
+*/
+
+
+/* Table of Contents
+==================================================
+    #Base 960 Grid
+    #Tablet (Portrait)
+    #Mobile (Portrait)
+    #Mobile (Landscape)
+    #Clearing */
+
+@gutter:50px;
+@columns:12;
+@maxWidth:1010px;                //default width     //working: 990px&30    - 1010px & 50
+@maxWidthLarge:1130px;          //large       		//working: 1110px&30    - 1130px & 50
+@maxWidthExtraLarge: 1310px;	//extra large		//
+@maxWidthTablet:782px;          //tablet size       //working: 774px&30     - 782px  & 50
+@maxWidthMobileLarge:478px;     //mobile landscape  //working: 478px&30     -
+@maxWidthMobileSmall:318px;     //mobile portrait   //working: 318px&30     -
+
+.columns(@num: 1) { @contentWidth: (@maxWidth - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; width: (@single * @num) + (@gutter * (@num - 1)); }
+.min(@num: 1) { @contentWidth: (@maxWidth - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; min-width: (@single * @num) + (@gutter * (@num - 1)); }
+.offset(@num: 1) {  @contentWidth: (@maxWidth - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; padding-left: (@single + @gutter) * @num; }
+
+
+/* #Base 960 Grid
+================================================== */
+	html										{ .min(12);}
+	html.responsive								{ min-width:0px; }
+	.boxed#top									{ margin: 0 auto; overflow:visible; /* position:relative; z-index: 3; */ }
+    .container                                  { position: relative; .columns(12); margin: 0 auto; padding: 0px; clear:both; }
+    /*no z-index for container_wrap or fixed bgs start disapearing when other elements transition -> weird chrome bug*/
+    .container_wrap 							{ clear:both; position: relative; /* z-index: 1; */ border-top-style: solid; border-top-width:1px;}
+    .unit, .units                           	{ float: left; display: inline; margin-left: @gutter; position:relative; z-index:1; min-height:1px;}
+    .row                                        { position:relative; margin-bottom: 20px; clear:both; }
+	
+	
+	.boxed .container .stretch_full				{ position:relative; left:-@gutter; }
+	.boxed#top									{ width: @maxWidth; }
+    .boxed .container                           { margin: 0px @gutter; }
+    #wrap_all									{ width:100%; position: relative; z-index: 2;}
+    /* Nested Column Classes */
+    body .unit.alpha, body .units.alpha, body div .first{ margin-left: 0; clear: left;}
+    body .unit.alpha, body .units.alpha{width: 100%;}
+    
+    /* Base Grid */
+    .container .one.unit, .container .one.units { .columns(1)  }
+    .container .two.units                     	{ .columns(2)  }
+    .container .three.units                   	{ .columns(3) }
+    .container .four.units                    	{ .columns(4) }
+    .container .five.units                    	{ .columns(5) }
+    .container .six.units                     	{ .columns(6) }
+    .container .seven.units                   	{ .columns(7) }
+    .container .eight.units                   	{ .columns(8) }
+    .container .nine.units                    	{ .columns(9) }
+    .container .ten.units                     	{ .columns(10) }
+    .container .eleven.units                  	{ .columns(11) }
+    .container .twelve.units					{  margin-left:0; .columns(12) }
+	#top.boxed  .stretch_full					{ width: @maxWidth;}
+
+    /* Offsets */
+    #top .offset-by-one                   { .offset(1)  }
+    #top .offset-by-two                   { .offset(2)  }
+    #top .offset-by-three                 { .offset(3) }
+    #top .offset-by-four                  { .offset(4) }
+    #top .offset-by-five                  { .offset(5) }
+    #top .offset-by-six                   { .offset(6) }
+    #top .offset-by-seven                 { .offset(7) }
+    #top .offset-by-eight                 { .offset(8) }
+    #top .offset-by-nine                  { .offset(9) }
+    #top .offset-by-ten                   { .offset(10) }
+    #top .offset-by-eleven                { .offset(11) }
+    
+ 
+
+	     
+    
+ /* #Desktop - Large
+================================================== */   
+    
+
+    @media only screen and (min-width: 1140px)  
+    {
+        
+        .columns(@num: 1){  @contentWidth: (@maxWidthLarge - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; width: (@single * @num) + (@gutter * (@num - 1));  }
+        .offset(@num: 1) {  @contentWidth: (@maxWidthLarge - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; padding-left: (@single + @gutter) * @num; }
+    
+    	.responsive .boxed#top							 { width: @maxWidthLarge; }
+        .responsive .container                                   { .columns(12) }
+		
+	    .responsive .container .one.unit, .responsive .container .one.units { .columns(1) }
+	    .responsive .container .two.units                     	{ .columns(2) }
+	    .responsive .container .three.units                   	{ .columns(3) }
+	    .responsive .container .four.units                    	{ .columns(4) }
+	    .responsive .container .five.units                    	{ .columns(5) }
+	    .responsive .container .six.units                     	{ .columns(6) }
+	    .responsive .container .seven.units                   	{ .columns(7) }
+	    .responsive .container .eight.units                   	{ .columns(8) }
+	    .responsive .container .nine.units                    	{ .columns(9) }
+	    .responsive .container .ten.units                     	{ .columns(10) }
+	    .responsive .container .eleven.units                  	{ .columns(11) }
+	    .responsive .container .twelve.units					{ .columns(12) }
+		.responsive #top.boxed  .stretch_full					{ width: @maxWidthLarge;}
+		
+	    .responsive{
+	    
+	        #top .offset-by-one                   { .offset(1) }
+            #top .offset-by-two                   { .offset(2) }
+            #top .offset-by-three                 { .offset(3) }
+            #top .offset-by-four                  { .offset(4) }
+            #top .offset-by-five                  { .offset(5) }
+            #top .offset-by-six                   { .offset(6) }
+            #top .offset-by-seven                 { .offset(7) }
+            #top .offset-by-eight                 { .offset(8) }
+            #top .offset-by-nine                  { .offset(9) }
+            #top .offset-by-ten                   { .offset(10)}
+            #top .offset-by-eleven                { .offset(11)}
+	    
+	    }
+	    
+	  }
+
+
+ /* #Desktop - Extra Large
+================================================== */   
+    
+
+    @media only screen and (min-width: 1340px)  
+    {
+        
+        .columns(@num: 1){  @contentWidth: (@maxWidthExtraLarge - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; width: (@single * @num) + (@gutter * (@num - 1));  }
+        .offset(@num: 1) {  @contentWidth: (@maxWidthExtraLarge - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; padding-left: (@single + @gutter) * @num; }
+    
+    	.responsive_large .boxed#top							 { width: @maxWidthExtraLarge; }
+        .responsive_large .container                                   { .columns(12) }
+		
+	    .responsive_large .container .one.unit, .responsive_large .container .one.units { .columns(1) }
+	    .responsive_large .container .two.units                     	{ .columns(2) }
+	    .responsive_large .container .three.units                   	{ .columns(3) }
+	    .responsive_large .container .four.units                    	{ .columns(4) }
+	    .responsive_large .container .five.units                    	{ .columns(5) }
+	    .responsive_large .container .six.units                     	{ .columns(6) }
+	    .responsive_large .container .seven.units                   	{ .columns(7) }
+	    .responsive_large .container .eight.units                   	{ .columns(8) }
+	    .responsive_large .container .nine.units                    	{ .columns(9) }
+	    .responsive_large .container .ten.units                     	{ .columns(10) }
+	    .responsive_large .container .eleven.units                  	{ .columns(11) }
+	    .responsive_large .container .twelve.units					{ .columns(12) }
+		.responsive_large #top.boxed  .stretch_full					{ width: @maxWidthExtraLarge;}
+		
+	    .responsive_large{
+	    
+	        #top .offset-by-one                   { .offset(1) }
+            #top .offset-by-two                   { .offset(2) }
+            #top .offset-by-three                 { .offset(3) }
+            #top .offset-by-four                  { .offset(4) }
+            #top .offset-by-five                  { .offset(5) }
+            #top .offset-by-six                   { .offset(6) }
+            #top .offset-by-seven                 { .offset(7) }
+            #top .offset-by-eight                 { .offset(8) }
+            #top .offset-by-nine                  { .offset(9) }
+            #top .offset-by-ten                   { .offset(10)}
+            #top .offset-by-eleven                { .offset(11)}
+	    
+	    }
+	    
+	  }
+
+
+/* #Tablet (Portrait)
+================================================== */
+
+    /* Note: Design for a width of 768px, Gutter: 30px, Unit: 32px */
+
+    @media only screen and (min-width: 768px) and (max-width: 989px) {
+        
+        .responsive #top {overflow-x: hidden;}
+        
+        .columns(@num: 1){  @contentWidth: (@maxWidthTablet - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; width: (@single * @num) + (@gutter * (@num - 1));  }
+        .offset(@num: 1) {  @contentWidth: (@maxWidthTablet - (2* @gutter)); @single: (@contentWidth - (@gutter * (@columns - 1))) / @columns; padding-left: (@single + @gutter) * @num; }
+    
+    	.responsive .boxed#top							 { width: @maxWidthTablet; }
+        .responsive .container                                   { .columns(12) }
+		
+	    .responsive .container .one.unit, .responsive .container .one.units { .columns(1) }
+	    .responsive .container .two.units                     	{ .columns(2) }
+	    .responsive .container .three.units                   	{ .columns(3) }
+	    .responsive .container .four.units                    	{ .columns(4) }
+	    .responsive .container .five.units                    	{ .columns(5) }
+	    .responsive .container .six.units                     	{ .columns(6) }
+	    .responsive .container .seven.units                   	{ .columns(7) }
+	    .responsive .container .eight.units                   	{ .columns(8) }
+	    .responsive .container .nine.units                    	{ .columns(9) }
+	    .responsive .container .ten.units                     	{ .columns(10) }
+	    .responsive .container .eleven.units                  	{ .columns(11) }
+	    .responsive .container .twelve.units					{ .columns(12) }
+		.responsive #top.boxed  .stretch_full					{ width: @maxWidthTablet;}
+		
+	    .responsive{
+	    
+	        #top .offset-by-one                   { .offset(1) }
+            #top .offset-by-two                   { .offset(2) }
+            #top .offset-by-three                 { .offset(3) }
+            #top .offset-by-four                  { .offset(4) }
+            #top .offset-by-five                  { .offset(5) }
+            #top .offset-by-six                   { .offset(6) }
+            #top .offset-by-seven                 { .offset(7) }
+            #top .offset-by-eight                 { .offset(8) }
+            #top .offset-by-nine                  { .offset(9) }
+            #top .offset-by-ten                   { .offset(10)}
+            #top .offset-by-eleven                { .offset(11)}
+	    
+	    }
+
+    }
+
+
+/*  #Mobile (Portrait)
+================================================== */
+
+    /* Note: Design for a width of 320px */
+
+    
+    @media only screen and (max-width: 767px) {
+    
+    .responsive #top {overflow-x: hidden;}
+
+    @contentWidth: @maxWidthMobileSmall - @gutter;
+    
+       .responsive .boxed#top { width: @maxWidthMobileSmall;  }
+       .responsive .container { width: @contentWidth; margin:0 auto;}
+       .responsive .units, .responsive .unit { margin: 0; }
+
+       .responsive .container .one.unit,
+       .responsive .container .one.units,
+       .responsive .container .two.units,
+       .responsive .container .three.units,
+       .responsive .container .four.units,
+       .responsive .container .five.units,
+       .responsive .container .six.units,
+       .responsive .container .seven.units,
+       .responsive .container .eight.units,
+       .responsive .container .nine.units,
+       .responsive .container .ten.units,
+       .responsive .container .eleven.units,
+       .responsive .container .twelve.units,
+       .responsive #top .flex_column { margin: 0; margin-bottom: 20px; width: 100%; }
+	   .responsive #top.boxed  .stretch_full{ width: @maxWidthMobileSmall;}
+
+
+
+        /* Offsets */
+       .responsive #top .offset-by-one,
+       .responsive #top .offset-by-two,
+       .responsive #top .offset-by-three,
+       .responsive #top .offset-by-four,
+       .responsive #top .offset-by-five,
+       .responsive #top .offset-by-six,
+       .responsive #top .offset-by-seven,
+       .responsive #top .offset-by-eight,
+       .responsive #top .offset-by-nine,
+       .responsive #top .offset-by-ten,
+       .responsive #top .offset-by-eleven{ padding-left: 0; }
+
+    }
+
+
+/* #Mobile (Landscape)
+================================================== */
+
+    /* Note: Design for a width of 480px */
+
+    @media only screen and (min-width: 480px) and (max-width: 767px) {
+    
+    .responsive #top {overflow-x: hidden;}
+    
+    @contentWidth:@maxWidthMobileLarge - @gutter;
+    
+    	.responsive .boxed#top  	{ width: @maxWidthMobileLarge;  }
+        .responsive .container { width: @contentWidth; margin:0 auto;}
+        .responsive .units, .responsive .unit { margin: 0; }
+
+        .responsive .container .one.unit,
+        .responsive .container .one.units,
+        .responsive .container .two.units,
+        .responsive .container .three.units,
+        .responsive .container .four.units,
+        .responsive .container .five.units,
+        .responsive .container .six.units,
+        .responsive .container .seven.units,
+        .responsive .container .eight.units,
+        .responsive .container .nine.units,
+        .responsive .container .ten.units,
+        .responsive .container .eleven.units,
+        .responsive .container .twelve.units,
+        .responsive #top .flex_column { width: 100%; margin-left: 0; margin-bottom: 20px; }
+		.responsive #top.boxed  .stretch_full{ width: @maxWidthMobileLarge; }
+        
+    }
+
+
+/* #Clearing
+================================================== */
+
+    /* Self Clearing Goodness */
+    .container:after { content: "\0020"; display: block; height: 0; clear: both; visibility: hidden; }
+
+    /* Use clearfix class on parent to clear nested units,
+    or wrap each row of units in a <div class="row"> */
+    .clearfix:before,
+    .clearfix:after,
+    .flex_column:before,
+    .flex_column:after {
+      content: '\0020';
+      display: block;
+      overflow: hidden;
+      visibility: hidden;
+      width: 0;
+      height: 0; }
+    .flex_column:after,
+    .clearfix:after {
+      clear: both; }
+    .row,
+    .clearfix {
+      zoom: 1; }
+
+    /* You can also use a <br class="clear" /> to clear units */
+    .clear {
+      clear: both;
+      display: block;
+      overflow: hidden;
+      visibility: hidden;
+      width: 0;
+      height: 0;
+    }
+
+
+/* Columns for better content separation
+================================================== */
+
+body div .first, body div .no_margin{ margin-left:0; }
+
+
+@flexGutter: 6%;
+
+.flexWidth(@length: 1, @columns: 1) { width: (((100% - (@flexGutter * (@columns - 1))) / @columns) * @length ) + (@flexGutter * (@length - 1))  }
+
+div .flex_column    { z-index:1; float:left; position:relative;  min-height: 1px; width:100%;}
+div .av_one_fifth	{ margin-left: @flexGutter; .flexWidth(1,5); }
+div .av_one_fourth	{ margin-left: @flexGutter; .flexWidth(1,4); }
+div .av_one_third	{ margin-left: @flexGutter; .flexWidth(1,3); }
+div .av_two_fifth	{ margin-left: @flexGutter; .flexWidth(2,5); }
+div .av_one_half	{ margin-left: @flexGutter; .flexWidth(1,2); }
+div .av_three_fifth	{ margin-left: @flexGutter; .flexWidth(3,5); }
+div .av_two_third	{ margin-left: @flexGutter; .flexWidth(2,3); }
+div .av_three_fourth{ margin-left: @flexGutter; .flexWidth(3,4); }
+div .av_four_fifth	{ margin-left: @flexGutter; .flexWidth(4,5); }
+div .av_one_sixth	{ margin-left: @flexGutter; .flexWidth(1,6); }
+div .av_one_seventh	{ margin-left: @flexGutter; .flexWidth(1,7); }
+div .av_one_eighth	{ margin-left: @flexGutter; .flexWidth(1,8); }
+div .av_one_nineth	{ margin-left: @flexGutter; .flexWidth(1,9); }
+div .av_one_tenth	{ margin-left: @flexGutter; .flexWidth(1,10);}
+
+/* Columns for better content separation (no margin)
+================================================== */
+
+body div .no_margin		    { margin-left:0;}
+.no_margin.av_one_fifth	    {  width:20%;   }
+.no_margin.av_one_fourth    {  width:25%;   }
+.no_margin.av_one_third	    {  width:33.3%; }
+.no_margin.av_two_fifth	    {  width:40%;   }
+.no_margin.av_one_half	    {  width:50%;   }
+.no_margin.av_three_fifth	{  width:60%;   }
+.no_margin.av_two_third	    {  width:66.6%; }
+.no_margin.av_three_fourth	{  width:75%;   }
+.no_margin.av_four_fifth	{  width:80%;   }
+.no_margin.av_one_sixth		{  width: 100% / 6; }
+.no_margin.av_one_seventh	{  width: 100% / 7; }
+.no_margin.av_one_eighth	{  width: 100% / 8; }
+.no_margin.av_one_nineth	{  width: 100% / 9; }
+.no_margin.av_one_tenth		{  width: 10%; }

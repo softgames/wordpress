@@ -7,21 +7,54 @@
  */
 
 /**
- * {@internal Missing Short Description}}
+ * Returns whether the server is running Apache with the mod_rewrite module loaded.
  *
- * @since unknown
+ * @since 2.0.0
  *
- * @return unknown
+ * @return bool
  */
 function got_mod_rewrite() {
 	$got_rewrite = apache_mod_loaded('mod_rewrite', true);
+
+	/**
+	 * Filter whether Apache and mod_rewrite are present.
+	 *
+	 * This filter was previously used to force URL rewriting for other servers,
+	 * like nginx. Use the got_url_rewrite filter in got_url_rewrite() instead.
+	 *
+	 * @see got_url_rewrite()
+	 *
+	 * @since 2.5.0
+	 * @param bool $got_rewrite Whether Apache and mod_rewrite are present.
+	 */
 	return apply_filters('got_rewrite', $got_rewrite);
+}
+
+/**
+ * Returns whether the server supports URL rewriting.
+ *
+ * Detects Apache's mod_rewrite, IIS 7.0+ permalink support, and nginx.
+ *
+ * @since 3.7.0
+ *
+ * @return bool Whether the server supports URL rewriting.
+ */
+function got_url_rewrite() {
+	$got_url_rewrite = ( got_mod_rewrite() || $GLOBALS['is_nginx'] || iis7_supports_permalinks() );
+
+	/**
+	 * Filter whether URL rewriting is available.
+	 *
+	 * @since 3.7.0
+	 * @param bool $got_url_rewrite Whether URL rewriting is available.
+	 */
+	return apply_filters( 'got_url_rewrite', $got_url_rewrite );
 }
 
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 1.5.0
  *
  * @param unknown_type $filename
  * @param unknown_type $marker
@@ -57,7 +90,7 @@ function extract_from_markers( $filename, $marker ) {
  * BEGIN and END markers. Replaces existing marked info. Retains surrounding
  * data. Creates file if none exists.
  *
- * @since unknown
+ * @since 1.5.0
  *
  * @param unknown_type $filename
  * @param unknown_type $marker
@@ -117,7 +150,7 @@ function insert_with_markers( $filename, $marker, $insertion ) {
  * Always writes to the file if it exists and is writable to ensure that we
  * blank out old rules.
  *
- * @since unknown
+ * @since 1.5.0
  */
 function save_mod_rewrite_rules() {
 	if ( is_multisite() )
@@ -149,20 +182,21 @@ function save_mod_rewrite_rules() {
  * @return bool True if web.config was updated successfully
  */
 function iis7_save_url_rewrite_rules(){
+	if ( is_multisite() )
+		return;
+
 	global $wp_rewrite;
 
 	$home_path = get_home_path();
 	$web_config_file = $home_path . 'web.config';
 
 	// Using win_is_writable() instead of is_writable() because of a bug in Windows PHP
-	if ( ( ! file_exists($web_config_file) && win_is_writable($home_path) && $wp_rewrite->using_mod_rewrite_permalinks() ) || win_is_writable($web_config_file) ) {
-		if ( iis7_supports_permalinks() ) {
-			$rule = $wp_rewrite->iis7_url_rewrite_rules(false, '', '');
-			if ( ! empty($rule) ) {
-				return iis7_add_rewrite_rule($web_config_file, $rule);
-			} else {
-				return iis7_delete_rewrite_rule($web_config_file);
-			}
+	if ( iis7_supports_permalinks() && ( ( ! file_exists($web_config_file) && win_is_writable($home_path) && $wp_rewrite->using_mod_rewrite_permalinks() ) || win_is_writable($web_config_file) ) ) {
+		$rule = $wp_rewrite->iis7_url_rewrite_rules(false, '', '');
+		if ( ! empty($rule) ) {
+			return iis7_add_rewrite_rule($web_config_file, $rule);
+		} else {
+			return iis7_delete_rewrite_rule($web_config_file);
 		}
 	}
 	return false;
@@ -171,7 +205,7 @@ function iis7_save_url_rewrite_rules(){
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 1.5.0
  *
  * @param unknown_type $file
  */
@@ -191,41 +225,38 @@ function update_recently_edited( $file ) {
 }
 
 /**
- * If siteurl or home changed, flush rewrite rules.
+ * If siteurl, home or page_on_front changed, flush rewrite rules.
  *
- * @since unknown
+ * @since 2.1.0
  *
- * @param unknown_type $old_value
- * @param unknown_type $value
+ * @param string $old_value
+ * @param string $value
  */
 function update_home_siteurl( $old_value, $value ) {
-	global $wp_rewrite;
-
 	if ( defined( "WP_INSTALLING" ) )
 		return;
 
 	// If home changed, write rewrite rules to new location.
-	$wp_rewrite->flush_rules();
+	flush_rewrite_rules();
 }
 
 add_action( 'update_option_home', 'update_home_siteurl', 10, 2 );
 add_action( 'update_option_siteurl', 'update_home_siteurl', 10, 2 );
+add_action( 'update_option_page_on_front', 'update_home_siteurl', 10, 2 );
 
 /**
- * {@internal Missing Short Description}}
+ * Shorten an URL, to be used as link text
  *
- * @since unknown
+ * @since 1.2.0
  *
- * @param unknown_type $url
- * @return unknown
+ * @param string $url
+ * @return string
  */
 function url_shorten( $url ) {
-	$short_url = str_replace( 'http://', '', stripslashes( $url ));
-	$short_url = str_replace( 'www.', '', $short_url );
-	if ('/' == substr( $short_url, -1 ))
-		$short_url = substr( $short_url, 0, -1 );
+	$short_url = str_replace( array( 'http://', 'www.' ), '', $url );
+	$short_url = untrailingslashit( $short_url );
 	if ( strlen( $short_url ) > 35 )
-		$short_url = substr( $short_url, 0, 32 ).'...';
+		$short_url = substr( $short_url, 0, 32 ) . '&hellip;';
 	return $short_url;
 }
 
@@ -236,7 +267,7 @@ function url_shorten( $url ) {
  * in the $vars array to the value of $_POST[$var] or $_GET[$var] or ''
  * if neither is defined.
  *
- * @since unknown
+ * @since 2.0.0
  *
  * @param array $vars An array of globals to reset.
  */
@@ -259,13 +290,13 @@ function wp_reset_vars( $vars ) {
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.1.0
  *
  * @param unknown_type $message
  */
 function show_message($message) {
 	if ( is_wp_error($message) ){
-		if ( $message->get_error_data() )
+		if ( $message->get_error_data() && is_string( $message->get_error_data() ) )
 			$message = $message->get_error_message() . ': ' . $message->get_error_data();
 		else
 			$message = $message->get_error_message();
@@ -327,28 +358,33 @@ function set_screen_options() {
 		$option = $_POST['wp_screen_options']['option'];
 		$value = $_POST['wp_screen_options']['value'];
 
-		if ( !preg_match( '/^[a-z_-]+$/', $option ) )
+		if ( $option != sanitize_key( $option ) )
 			return;
-
-		$option = str_replace('-', '_', $option);
 
 		$map_option = $option;
 		$type = str_replace('edit_', '', $map_option);
 		$type = str_replace('_per_page', '', $type);
-		if ( in_array($type, get_post_types()) )
-			$map_option = 'edit_per_page';
-		if ( in_array( $type, get_taxonomies()) )
+		if ( in_array( $type, get_taxonomies() ) )
 			$map_option = 'edit_tags_per_page';
-
+		elseif ( in_array( $type, get_post_types() ) )
+			$map_option = 'edit_per_page';
+		else
+			$option = str_replace('-', '_', $option);
 
 		switch ( $map_option ) {
 			case 'edit_per_page':
-			case 'ms_sites_per_page':
-			case 'ms_users_per_page':
+			case 'users_per_page':
 			case 'edit_comments_per_page':
 			case 'upload_per_page':
 			case 'edit_tags_per_page':
 			case 'plugins_per_page':
+			// Network admin
+			case 'sites_network_per_page':
+			case 'users_network_per_page':
+			case 'site_users_network_per_page':
+			case 'plugins_network_per_page':
+			case 'themes_network_per_page':
+			case 'site_themes_network_per_page':
 				$value = (int) $value;
 				if ( $value < 1 || $value > 999 )
 					return;
@@ -361,49 +397,13 @@ function set_screen_options() {
 		}
 
 		update_user_meta($user->ID, $option, $value);
-		wp_redirect( remove_query_arg( array('pagenum', 'apage', 'paged'), wp_get_referer() ) );
+		wp_safe_redirect( remove_query_arg( array('pagenum', 'apage', 'paged'), wp_get_referer() ) );
 		exit;
 	}
 }
 
-function wp_menu_unfold() {
-	if ( isset($_GET['unfoldmenu']) ) {
-		delete_user_setting('mfold');
-		wp_redirect( remove_query_arg( 'unfoldmenu', stripslashes($_SERVER['REQUEST_URI']) ) );
-	 	exit;
-	}
-}
-
 /**
- * Check if IIS 7 supports pretty permalinks
- *
- * @since 2.8.0
- *
- * @return bool
- */
-function iis7_supports_permalinks() {
-	global $is_iis7;
-
-	$supports_permalinks = false;
-	if ( $is_iis7 ) {
-		/* First we check if the DOMDocument class exists. If it does not exist,
-		 * which is the case for PHP 4.X, then we cannot easily update the xml configuration file,
-		 * hence we just bail out and tell user that pretty permalinks cannot be used.
-		 * This is not a big issue because PHP 4.X is going to be depricated and for IIS it
-		 * is recommended to use PHP 5.X NTS.
-		 * Next we check if the URL Rewrite Module 1.1 is loaded and enabled for the web site. When
-		 * URL Rewrite 1.1 is loaded it always sets a server variable called 'IIS_UrlRewriteModule'.
-		 * Lastly we make sure that PHP is running via FastCGI. This is important because if it runs
-		 * via ISAPI then pretty permalinks will not work.
-		 */
-		$supports_permalinks = class_exists('DOMDocument') && isset($_SERVER['IIS_UrlRewriteModule']) && ( php_sapi_name() == 'cgi-fcgi' );
-	}
-
-	return apply_filters('iis7_supports_permalinks', $supports_permalinks);
-}
-
-/**
- * Check if rewrite rule for WordPress already exists in the IIS 7 configuration file
+ * Check if rewrite rule for WordPress already exists in the IIS 7+ configuration file
  *
  * @since 2.8.0
  *
@@ -461,7 +461,7 @@ function iis7_delete_rewrite_rule($filename) {
 }
 
 /**
- * Add WordPress rewrite rule to the IIS 7 configuration file.
+ * Add WordPress rewrite rule to the IIS 7+ configuration file.
  *
  * @since 2.8.0
  *
@@ -557,61 +557,214 @@ function saveDomDocument($doc, $filename) {
 }
 
 /**
- * Workaround for Windows bug in is_writable() function
- *
- * @since 2.8.0
- *
- * @param object $path
- * @return bool
- */
-function win_is_writable($path) {
-	/* will work in despite of Windows ACLs bug
-	 * NOTE: use a trailing slash for folders!!!
-	 * see http://bugs.php.net/bug.php?id=27609
-	 * see http://bugs.php.net/bug.php?id=30931
-	 */
-
-    if ( $path{strlen($path)-1} == '/' ) // recursively return a temporary file path
-        return win_is_writable($path . uniqid(mt_rand()) . '.tmp');
-    else if ( is_dir($path) )
-        return win_is_writable($path . '/' . uniqid(mt_rand()) . '.tmp');
-    // check tmp file for read/write capabilities
-    $rm = file_exists($path);
-    $f = @fopen($path, 'a');
-    if ($f===false)
-        return false;
-    fclose($f);
-    if ( ! $rm )
-        unlink($path);
-    return true;
-}
-
-/**
  * Display the default admin color scheme picker (Used in user-edit.php)
  *
  * @since 3.0.0
  */
 function admin_color_scheme_picker() {
-	global $_wp_admin_css_colors, $user_id; ?>
-<fieldset><legend class="screen-reader-text"><span><?php _e('Admin Color Scheme')?></span></legend>
-<?php
-$current_color = get_user_option('admin_color', $user_id);
-if ( empty($current_color) )
-	$current_color = 'fresh';
-foreach ( $_wp_admin_css_colors as $color => $color_info ): ?>
-<div class="color-option"><input name="admin_color" id="admin_color_<?php echo $color; ?>" type="radio" value="<?php echo esc_attr($color) ?>" class="tog" <?php checked($color, $current_color); ?> />
-	<table class="color-palette">
-	<tr>
-	<?php foreach ( $color_info->colors as $html_color ): ?>
-	<td style="background-color: <?php echo $html_color ?>" title="<?php echo $color ?>">&nbsp;</td>
-	<?php endforeach; ?>
-	</tr>
-	</table>
+	global $_wp_admin_css_colors;
 
-	<label for="admin_color_<?php echo $color; ?>"><?php echo $color_info->name ?></label>
-</div>
-	<?php endforeach; ?>
-</fieldset>
-<?php
+	ksort( $_wp_admin_css_colors );
+
+	if ( isset( $_wp_admin_css_colors['fresh'] ) ) {
+		// Set Default ('fresh') and Light should go first.
+		$_wp_admin_css_colors = array_filter( array_merge( array( 'fresh' => '', 'light' => '' ), $_wp_admin_css_colors ) );
+	}
+
+	$current_color = get_user_option( 'admin_color' );
+
+	if ( empty( $current_color ) || ! isset( $_wp_admin_css_colors[ $current_color ] ) ) {
+		$current_color = 'fresh';
+	}
+
+	?>
+	<fieldset id="color-picker" class="scheme-list">
+		<legend class="screen-reader-text"><span><?php _e( 'Admin Color Scheme' ); ?></span></legend>
+		<?php
+		wp_nonce_field( 'save-color-scheme', 'color-nonce', false );
+		foreach ( $_wp_admin_css_colors as $color => $color_info ) :
+
+			?>
+			<div class="color-option <?php echo ( $color == $current_color ) ? 'selected' : ''; ?>">
+				<input name="admin_color" id="admin_color_<?php echo esc_attr( $color ); ?>" type="radio" value="<?php echo esc_attr( $color ); ?>" class="tog" <?php checked( $color, $current_color ); ?> />
+				<input type="hidden" class="css_url" value="<?php echo esc_url( $color_info->url ); ?>" />
+				<input type="hidden" class="icon_colors" value="<?php echo esc_attr( json_encode( array( 'icons' => $color_info->icon_colors ) ) ); ?>" />
+				<label for="admin_color_<?php echo esc_attr( $color ); ?>"><?php echo esc_html( $color_info->name ); ?></label>
+				<table class="color-palette">
+					<tr>
+					<?php
+
+					foreach ( $color_info->colors as $html_color ) {
+						?>
+						<td style="background-color: <?php echo esc_attr( $html_color ); ?>">&nbsp;</td>
+						<?php
+					}
+
+					?>
+					</tr>
+				</table>
+			</div>
+			<?php
+
+		endforeach;
+
+	?>
+	</fieldset>
+	<?php
 }
-?>
+
+function wp_color_scheme_settings() {
+	global $_wp_admin_css_colors;
+
+	$color_scheme = get_user_option( 'admin_color' );
+
+	// It's possible to have a color scheme set that is no longer registered.
+	if ( empty( $_wp_admin_css_colors[ $color_scheme ] ) ) {
+		$color_scheme = 'fresh';
+	}
+
+	if ( ! empty( $_wp_admin_css_colors[ $color_scheme ]->icon_colors ) ) {
+		$icon_colors = $_wp_admin_css_colors[ $color_scheme ]->icon_colors;
+	} elseif ( ! empty( $_wp_admin_css_colors['fresh']->icon_colors ) ) {
+		$icon_colors = $_wp_admin_css_colors['fresh']->icon_colors;
+	} else {
+		// Fall back to the default set of icon colors if the default scheme is missing.
+		$icon_colors = array( 'base' => '#999', 'focus' => '#2ea2cc', 'current' => '#fff' );
+	}
+
+	echo '<script type="text/javascript">var _wpColorScheme = ' . json_encode( array( 'icons' => $icon_colors ) ) . ";</script>\n";
+}
+add_action( 'admin_head', 'wp_color_scheme_settings' );
+
+function _ipad_meta() {
+	if ( wp_is_mobile() ) {
+		?>
+		<meta name="viewport" id="viewport-meta" content="width=device-width, initial-scale=1">
+		<?php
+	}
+}
+add_action('admin_head', '_ipad_meta');
+
+/**
+ * Check lock status for posts displayed on the Posts screen
+ *
+ * @since 3.6
+ */
+function wp_check_locked_posts( $response, $data, $screen_id ) {
+	$checked = array();
+
+	if ( array_key_exists( 'wp-check-locked-posts', $data ) && is_array( $data['wp-check-locked-posts'] ) ) {
+		foreach ( $data['wp-check-locked-posts'] as $key ) {
+			if ( ! $post_id = absint( substr( $key, 5 ) ) )
+				continue;
+
+			if ( ( $user_id = wp_check_post_lock( $post_id ) ) && ( $user = get_userdata( $user_id ) ) && current_user_can( 'edit_post', $post_id ) ) {
+				$send = array( 'text' => sprintf( __( '%s is currently editing' ), $user->display_name ) );
+
+				if ( ( $avatar = get_avatar( $user->ID, 18 ) ) && preg_match( "|src='([^']+)'|", $avatar, $matches ) )
+					$send['avatar_src'] = $matches[1];
+
+				$checked[$key] = $send;
+			}
+		}
+	}
+
+	if ( ! empty( $checked ) )
+		$response['wp-check-locked-posts'] = $checked;
+
+	return $response;
+}
+add_filter( 'heartbeat_received', 'wp_check_locked_posts', 10, 3 );
+
+/**
+ * Check lock status on the New/Edit Post screen and refresh the lock
+ *
+ * @since 3.6
+ */
+function wp_refresh_post_lock( $response, $data, $screen_id ) {
+	if ( array_key_exists( 'wp-refresh-post-lock', $data ) ) {
+		$received = $data['wp-refresh-post-lock'];
+		$send = array();
+
+		if ( ! $post_id = absint( $received['post_id'] ) )
+			return $response;
+
+		if ( ! current_user_can('edit_post', $post_id) )
+			return $response;
+
+		if ( ( $user_id = wp_check_post_lock( $post_id ) ) && ( $user = get_userdata( $user_id ) ) ) {
+			$error = array(
+				'text' => sprintf( __( '%s has taken over and is currently editing.' ), $user->display_name )
+			);
+
+			if ( $avatar = get_avatar( $user->ID, 64 ) ) {
+				if ( preg_match( "|src='([^']+)'|", $avatar, $matches ) )
+					$error['avatar_src'] = $matches[1];
+			}
+
+			$send['lock_error'] = $error;
+		} else {
+			if ( $new_lock = wp_set_post_lock( $post_id ) )
+				$send['new_lock'] = implode( ':', $new_lock );
+		}
+
+		$response['wp-refresh-post-lock'] = $send;
+	}
+
+	return $response;
+}
+add_filter( 'heartbeat_received', 'wp_refresh_post_lock', 10, 3 );
+
+/**
+ * Check nonce expiration on the New/Edit Post screen and refresh if needed
+ *
+ * @since 3.6
+ */
+function wp_refresh_post_nonces( $response, $data, $screen_id ) {
+	if ( array_key_exists( 'wp-refresh-post-nonces', $data ) ) {
+		$received = $data['wp-refresh-post-nonces'];
+		$response['wp-refresh-post-nonces'] = array( 'check' => 1 );
+
+		if ( ! $post_id = absint( $received['post_id'] ) )
+			return $response;
+
+		if ( ! current_user_can( 'edit_post', $post_id ) || empty( $received['post_nonce'] ) )
+			return $response;
+
+		if ( 2 === wp_verify_nonce( $received['post_nonce'], 'update-post_' . $post_id ) ) {
+			$response['wp-refresh-post-nonces'] = array(
+				'replace' => array(
+					'autosavenonce' => wp_create_nonce('autosave'),
+					'getpermalinknonce' => wp_create_nonce('getpermalink'),
+					'samplepermalinknonce' => wp_create_nonce('samplepermalink'),
+					'closedpostboxesnonce' => wp_create_nonce('closedpostboxes'),
+					'_ajax_linking_nonce' => wp_create_nonce( 'internal-linking' ),
+					'_wpnonce' => wp_create_nonce( 'update-post_' . $post_id ),
+				),
+				'heartbeatNonce' => wp_create_nonce( 'heartbeat-nonce' ),
+			);
+		}
+	}
+
+	return $response;
+}
+add_filter( 'heartbeat_received', 'wp_refresh_post_nonces', 10, 3 );
+
+/**
+ * Disable suspension of Heartbeat on the Add/Edit Post screens.
+ *
+ * @since 3.8.0
+ *
+ * @param array $settings An array of Heartbeat settings.
+ * @return array Filtered Heartbeat settings.
+ */
+function wp_heartbeat_set_suspension( $settings ) {
+	global $pagenow;
+
+	if ( 'post.php' === $pagenow || 'post-new.php' === $pagenow ) {
+		$settings['suspension'] = 'disable';
+	}
+
+	return $settings;
+}
+add_filter( 'heartbeat_settings', 'wp_heartbeat_set_suspension' );

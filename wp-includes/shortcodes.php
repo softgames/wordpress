@@ -128,6 +128,43 @@ function remove_all_shortcodes() {
 }
 
 /**
+ * Whether a registered shortcode exists named $tag
+ *
+ * @since 3.6.0
+ *
+ * @global array $shortcode_tags
+ * @param string $tag
+ * @return boolean
+ */
+function shortcode_exists( $tag ) {
+	global $shortcode_tags;
+	return array_key_exists( $tag, $shortcode_tags );
+}
+
+/**
+ * Whether the passed content contains the specified shortcode
+ *
+ * @since 3.6.0
+ *
+ * @global array $shortcode_tags
+ * @param string $tag
+ * @return boolean
+ */
+function has_shortcode( $content, $tag ) {
+	if ( shortcode_exists( $tag ) ) {
+		preg_match_all( '/' . get_shortcode_regex() . '/s', $content, $matches, PREG_SET_ORDER );
+		if ( empty( $matches ) )
+			return false;
+
+		foreach ( $matches as $shortcode ) {
+			if ( $tag === $shortcode[2] )
+				return true;
+		}
+	}
+	return false;
+}
+
+/**
  * Search content for shortcodes and filter shortcodes through their hooks.
  *
  * If there are no shortcode tags defined, then the content will be returned
@@ -148,7 +185,7 @@ function do_shortcode($content) {
 		return $content;
 
 	$pattern = get_shortcode_regex();
-	return preg_replace_callback('/'.$pattern.'/s', 'do_shortcode_tag', $content);
+	return preg_replace_callback( "/$pattern/s", 'do_shortcode_tag', $content );
 }
 
 /**
@@ -157,13 +194,14 @@ function do_shortcode($content) {
  * The regular expression combines the shortcode tags in the regular expression
  * in a regex class.
  *
- * The regular expresion contains 6 different sub matches to help with parsing.
+ * The regular expression contains 6 different sub matches to help with parsing.
  *
- * 1/6 - An extra [ or ] to allow for escaping shortcodes with double [[]]
+ * 1 - An extra [ to allow for escaping shortcodes with double [[]]
  * 2 - The shortcode name
  * 3 - The shortcode argument list
  * 4 - The self closing /
  * 5 - The content of a shortcode when it wraps some content.
+ * 6 - An extra ] to allow for escaping shortcodes with double [[]]
  *
  * @since 2.5
  * @uses $shortcode_tags
@@ -175,8 +213,37 @@ function get_shortcode_regex() {
 	$tagnames = array_keys($shortcode_tags);
 	$tagregexp = join( '|', array_map('preg_quote', $tagnames) );
 
-	// WARNING! Do not change this regex without changing do_shortcode_tag() and strip_shortcodes()
-	return '(.?)\[('.$tagregexp.')\b(.*?)(?:(\/))?\](?:(.+?)\[\/\2\])?(.?)';
+	// WARNING! Do not change this regex without changing do_shortcode_tag() and strip_shortcode_tag()
+	// Also, see shortcode_unautop() and shortcode.js.
+	return
+		  '\\['                              // Opening bracket
+		. '(\\[?)'                           // 1: Optional second opening bracket for escaping shortcodes: [[tag]]
+		. "($tagregexp)"                     // 2: Shortcode name
+		. '(?![\\w-])'                       // Not followed by word character or hyphen
+		. '('                                // 3: Unroll the loop: Inside the opening shortcode tag
+		.     '[^\\]\\/]*'                   // Not a closing bracket or forward slash
+		.     '(?:'
+		.         '\\/(?!\\])'               // A forward slash not followed by a closing bracket
+		.         '[^\\]\\/]*'               // Not a closing bracket or forward slash
+		.     ')*?'
+		. ')'
+		. '(?:'
+		.     '(\\/)'                        // 4: Self closing tag ...
+		.     '\\]'                          // ... and closing bracket
+		. '|'
+		.     '\\]'                          // Closing bracket
+		.     '(?:'
+		.         '('                        // 5: Unroll the loop: Optionally, anything between the opening and closing shortcode tags
+		.             '[^\\[]*+'             // Not an opening bracket
+		.             '(?:'
+		.                 '\\[(?!\\/\\2\\])' // An opening bracket not followed by the closing shortcode tag
+		.                 '[^\\[]*+'         // Not an opening bracket
+		.             ')*+'
+		.         ')'
+		.         '\\[\\/\\2\\]'             // Closing shortcode tag
+		.     ')?'
+		. ')'
+		. '(\\]?)';                          // 6: Optional second closing brocket for escaping shortcodes: [[tag]]
 }
 
 /**
@@ -206,7 +273,7 @@ function do_shortcode_tag( $m ) {
 		return $m[1] . call_user_func( $shortcode_tags[$tag], $attr, $m[5], $tag ) . $m[6];
 	} else {
 		// self-closing tag
-		return $m[1] . call_user_func( $shortcode_tags[$tag], $attr, NULL,  $tag ) . $m[6];
+		return $m[1] . call_user_func( $shortcode_tags[$tag], $attr, null,  $tag ) . $m[6];
 	}
 }
 
@@ -259,9 +326,10 @@ function shortcode_parse_atts($text) {
  *
  * @param array $pairs Entire list of supported attributes and their defaults.
  * @param array $atts User defined attributes in shortcode tag.
+ * @param string $shortcode Optional. The name of the shortcode, provided for context to enable filtering
  * @return array Combined and filtered attribute list.
  */
-function shortcode_atts($pairs, $atts) {
+function shortcode_atts( $pairs, $atts, $shortcode = '' ) {
 	$atts = (array)$atts;
 	$out = array();
 	foreach($pairs as $name => $default) {
@@ -270,6 +338,21 @@ function shortcode_atts($pairs, $atts) {
 		else
 			$out[$name] = $default;
 	}
+	/**
+	 * Filter a shortcode's default attributes.
+	 *
+	 * If the third parameter of the shortcode_atts() function is present then this filter is available.
+	 * The third parameter, $shortcode, is the name of the shortcode.
+	 *
+	 * @since 3.6.0
+	 *
+	 * @param array $out The output array of shortcode attributes.
+	 * @param array $pairs The supported attributes and their defaults.
+	 * @param array $atts The user defined shortcode attributes.
+	 */
+	if ( $shortcode )
+		$out = apply_filters( "shortcode_atts_{$shortcode}", $out, $pairs, $atts );
+
 	return $out;
 }
 
@@ -290,9 +373,16 @@ function strip_shortcodes( $content ) {
 
 	$pattern = get_shortcode_regex();
 
-	return preg_replace('/'.$pattern.'/s', '$1$6', $content);
+	return preg_replace_callback( "/$pattern/s", 'strip_shortcode_tag', $content );
+}
+
+function strip_shortcode_tag( $m ) {
+	// allow [[foo]] syntax for escaping a tag
+	if ( $m[1] == '[' && $m[6] == ']' ) {
+		return substr($m[0], 1, -1);
+	}
+
+	return $m[1] . $m[6];
 }
 
 add_filter('the_content', 'do_shortcode', 11); // AFTER wpautop()
-
-?>

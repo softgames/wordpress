@@ -1,0 +1,461 @@
+/* FORM ELEMENTS */
+.avia-style{line-height: 1.5em;}
+
+.avia-style input[type="text"],
+.avia-style input[type="input"],
+.avia-style input[type="password"],
+.avia-style input[type="email"],
+.avia-style textarea,
+.avia-style select {
+-webkit-appearance: none;
+border: 1px solid #e1e1e1;
+padding: 6px 4px;
+outline: none;
+font: 13px "HelveticaNeue", "Helvetica Neue", Helvetica, Arial, sans-serif;
+color: #777;
+margin: 0;
+width: 95%;
+max-width: 100%;
+margin-bottom: 5px;
+background: #fff; 
+-webkit-font-smoothing: antialiased;
+border-radius: 0;
+-moz-border-radius: 0;
+-webkit-border-radius: 0;
+display:inline;
+height:auto;
+}
+
+.avia-style textarea{
+-webkit-box-sizing: border-box; -moz-box-sizing: border-box; box-sizing: border-box;
+width:95%;
+padding:15px;
+height:150px;
+}
+
+.avia-style input[type="text"]:focus,
+.avia-style input[type="password"]:focus,
+.avia-style input[type="email"]:focus,
+.avia-style textarea:focus,
+.avia-style select:focus {
+border: 1px solid #ccc;
+color: #555;
+-moz-box-shadow: 0 0 3px rgba(0,0,0,.2);
+-webkit-box-shadow: 0 0 3px rgba(0,0,0,.2);
+box-shadow:  0 0 3px rgba(0,0,0,.2); 
+}	
+
+			
+.avia-style select{
+padding: 6px 35px 6px 4px;
+background-image: url(../../images/select.png);
+background-position: center right;
+background-repeat: no-repeat;
+}
+
+.avia-style select[multiple] {
+    background-image: none;
+    padding: 6px 0px 6px 0px;
+    line-height: 25px
+}
+
+.avia-style small{
+color:#999;
+font-size: 11px;
+font-style: italic;
+}
+
+
+
+/*tinymce form elements*/
+
+.avia-style .avia_advanced_textarea{
+height:auto;
+}
+
+div .avia_advanced_textarea.avia_tinymce.wp-editor-area{
+margin-bottom: -4px;
+border: none;
+}
+
+/*
+.avia-form-element .mceEditor{
+display: block;
+margin-right: -1px;
+}
+*/
+
+/*Icon Selector*/
+.avia_icon_select_container {
+height: 221px;
+overflow: auto;
+width: 100%;
+border: 1px solid #AAA;
+overflow-x: hidden;
+}
+
+.avia_icon_preview{
+position:relative;
+font-size:30px;
+line-height:1.5em;
+width:1.5em;
+color:#494949;
+background:#fff;
+display:block;
+text-align:center;
+float:left;
+border:1px solid #e1e1e1;
+margin-left:-1px;
+margin-top: -1px;
+transition: 		all 0.1s ease-out;
+-moz-transition: 	all 0.1s ease-out; /* Firefox 4 */
+-webkit-transition: all 0.1s ease-out; /* Safari and Chrome */
+-o-transition: 		all 0.1s ease-out; /* Opera */
+cursor:pointer;
+}
+
+.avia_icon_preview:hover{ color:#278AB7; z-index: 3; -webkit-transform:scale(1.3); -o-transform:scale(1.3); -moz-transform:scale(1.3); transform:scale(1.3);      }
+.avia_icon_select_container .avia-active-element, .avia_icon_select_container .avia-active-element:hover{color:#D54E21; }
+.av-iconselect-heading{clear:both; padding:10px; color:#666;width:100%;}
+
+/*colorpicker*/
+.avia-style .wp-picker-container{ position: relative; }
+.avia-style .wp-picker-holder{position: absolute; z-index: 1001;}
+.avia-style .iris-picker{-webkit-box-shadow: 0 1px 27px 0px rgba(0,0,0,0.3); -moz-box-shadow: 0 1px 27px 0px rgba(0,0,0,0.3); box-shadow: 0 1px 27px 0px rgba(0,0,0,0.3);}
+.avia-style .wp-picker-input-wrap{display:block; overflow: hidden;}
+.avia-style .wp-picker-input-wrap input{display:inline-block !important; width: 69px; padding: 6px 4px 6px 4px;}
+.avia-style .wp-color-result{top: 0px; display:block; white-space: nowrap; overflow: hidden; float:left; height:27px; min-width: 79px;}
+.avia-style .wp-color-result:after{line-height:27px; }
+.avia-style .wp-picker-input-wrap .button{ line-height:29px; height:29px; margin-left: 5px; padding:0;}
+.avia-style .wp-picker-input-wrap .colorpicker{margin-right:6px; position: relative; }
+
+.avia-style .iris-picker, .avia-style .wp-color-result, .avia-style .wp-color-result:after, .avia-style .wp-picker-input-wrap .button{
+border-color: #e1e1e1; color: #444; border-radius: 0; -moz-border-radius: 0; -webkit-border-radius:0;
+}
+
+/*checkbox*/
+.avia-element-checkbox{position: relative;}
+.avia-element-checkbox .avia-name-description > span{ padding-left:20px;}
+.avia-element-checkbox .avia-form-element{position: absolute;top:23px;}
+
+
+/*AVIA MODAL*/
+body.avia-noscroll{overflow: hidden;}
+
+.avia-modal-backdrop {
+position: fixed;
+top: 0;
+left: 0;
+right: 0;
+bottom: 0;
+min-height: 360px;
+background: black;
+opacity: .7;
+z-index: 400;
+}
+
+
+
+
+.avia-modal {
+position: fixed;
+top: 30px;
+left: 15%;
+right: 15%;
+z-index: 500;
+background: #fff;
+min-height: 210px;
+overflow: auto;
+bottom: 30px;
+-webkit-animation: avia_modal_pop 0.3s 1 cubic-bezier(0.175, 0.885, 0.320, 1.275); /* Safari 4+ */
+-moz-animation:    avia_modal_pop 0.3s 1 cubic-bezier(0.175, 0.885, 0.320, 1.275); /* Fx 5+ */
+-o-animation:      avia_modal_pop 0.3s 1 cubic-bezier(0.175, 0.885, 0.320, 1.275); /* Opera 12+ */
+animation:         avia_modal_pop 0.3s 1 cubic-bezier(0.175, 0.885, 0.320, 1.275); /* IE 10+ */
+}
+
+
+@-webkit-keyframes avia_modal_pop {
+  0%   { -webkit-transform:scale(0.8); opacity:0; }
+  100% { -webkit-transform:scale(1); opacity:1;  }
+}
+@-moz-keyframes avia_modal_pop {
+  0%   { -moz-transform:scale(0.8); opacity:0; }
+  100% { -moz-transform:scale(1); opacity:1;  }
+}
+@-o-keyframes avia_modal_pop {
+  0%   { -o-transform:scale(0.8); opacity:0; }
+  100% { -o-transform:scale(1); opacity:1;  }
+}
+@keyframes avia_modal_pop {
+  0%   { transform:scale(0.8); opacity:0; }
+  100% { transform:scale(1); opacity:1;  }
+}
+
+
+.avia-modal.bigscreen{
+left: 30px;
+right: 30px;
+bottom: 30px;
+}
+
+.avia-modal.mediumscreen{
+top:20%;
+left: 20%;
+right: 20%;
+bottom: 20%;
+}
+
+.avia-modal.smallscreen, .avia-modal.flexscreen{
+top:35%;
+left: 30%;
+right: 30%;
+bottom: auto;
+}
+
+
+.avia-modal.flexscreen{
+min-height:0;
+}
+
+.avia-modal.flexscreen .avia-modal-inner-content{
+position: relative;
+padding-bottom: 50px;
+top:0;
+}
+
+.avia-modal-inner-header{
+height: 50px;
+border-bottom: 1px solid #DFDFDF;
+box-shadow: 0 4px 4px -4px rgba(0, 0, 0, 0.1);
+position: relative;
+}
+
+.avia-modal-inner-footer {
+height: 50px;
+border-top: 1px solid #DFDFDF;
+box-shadow: inset 0 4px 4px -4px rgba(0, 0, 0, 0.1);
+position: absolute;
+bottom: 0;
+background: #FCFCFC;
+width: 100%;
+}
+
+div.avia-modal .avia-modal-inner-footer .button-large {
+position: absolute;
+right: 12px;
+top: 10px;
+padding: 0 35px 2px;
+}
+
+
+.avia-modal-inner-content {
+position: absolute;
+overflow: auto;
+padding: 0;
+top: 52px;
+left: 0;
+right: 0;
+bottom: 50px;
+}
+
+
+.avia-modal-close{
+-webkit-transition-duration: 0s;
+-moz-transition-duration: 0s;
+transition-duration: 0s;
+height:24px;
+width:24px;
+position: absolute;
+top:14px;
+right:14px;
+background: transparent url(../../images/icon-trash.png) top left no-repeat;
+overflow: hidden;
+text-indent: 200%;
+}
+
+.avia-modal-close:hover{
+background: transparent url(../../images/icon-trash.png) bottom left no-repeat;
+}
+
+.avia-modal-title {
+position: absolute;
+top: 0;
+margin: 0;
+line-height: 53px;
+left: 14px;
+color: #555;
+padding: 0;
+font-size: 22px;
+font-weight: 200;
+}
+
+.avia-msg-error{ color: #D54E21; }
+.avia-msg-success{ color:#8AB83A;}
+.avia-msg-attention{color:#4BA7D3;}
+
+.avia-modal-inner-content.preloading{
+background: transparent url(../../images/loading.gif) center 100px  no-repeat;
+}
+
+.smallscreen .avia-modal-inner-content.preloading{
+background: transparent url(../../images/loading.gif) center center  no-repeat;
+}
+
+.avia-modal-inner-footer.preloading{
+background: #FCFCFC url(../../images/loading.gif) 15px center  no-repeat;
+}
+
+.avia-form-element-container{
+padding:8px;
+}
+
+
+.avia-modal .avia-form-element-container{
+padding:18px 20px;
+-webkit-box-sizing: border-box; 
+-moz-box-sizing: border-box; 
+box-sizing: border-box; 
+border-bottom:1px dashed #e1e1e1;
+position: relative;
+background: #fff;
+clear: both;
+}
+
+.avia-modal .avia-form-element-container:hover, .smallscreen .avia-modal-inner-content:hover{
+background: #fcfcfc;
+}
+
+.smallscreen .avia-form-element-container{
+border-bottom:none;
+}
+
+/*
+.avia-form-element-container:nth-child(even){background: #f8f8f8;}
+.avia-form-element-container:nth-child(odd){clear:both;}
+.avia-form-element-container:last-child{border:none;}
+*/
+
+.avia-name-description > strong{ display:block; }
+.avia-name-description > span{ display: block; margin-bottom: 4px; color: #777;}
+
+
+
+
+
+
+/*inside modal use half with for element + description*/
+
+.avia-modal .avia-form-element{
+width:49%;
+float:left;
+}
+.avia-modal .avia-name-description{
+width:49%;
+float:right;
+}
+
+
+
+
+/*use full width for those exceptions:*/
+
+.avia-element-iconfont .avia-form-element, .avia-element-iconfont .avia-name-description,
+.avia-element-tiny_mce .avia-form-element, .avia-element-tiny_mce .avia-name-description,
+.avia-element-heading .avia-form-element, .avia-element-heading .avia-name-description,
+.avia-element-fullwidth .avia-form-element, .avia-element-fullwidth .avia-name-description
+{
+float:none;
+width:100%;
+}
+
+
+/*half sized elements*/
+.avia-modal .av_half {width:50%; float:left; position: relative; z-index: 5; clear:none;}
+.avia-modal .av_half_first {clear:both;}
+.avia-modal .av_half .avia-form-element, .avia-modal .av_half .avia-name-description{width:100%; float:none;}
+
+
+
+
+/*fullwidth and no border bottom*/
+.avia-form-element-container.avia-element-heading{
+border-bottom:none;
+}
+
+
+
+
+
+
+/*BACKWARDS COMPAT*/
+/*legacy thickbox scripts should be displayed above modal window*/
+body #TB_overlay, body>.ui-widget-overlay{
+z-index: 1000 !important;
+}
+body #TB_window, body>.ui-dialog.ui-widget{
+z-index: 1001;
+}
+
+/*hide tinymce fullscreen editor and more tag when in modal window*/
+body div.avia-modal .mce_wp_fullscreen, body div.avia-modal .mce_wp_more{display:none; }
+
+
+
+/*GENERIC STUFF*/
+.avia_clearfix:after{
+content: '.'; display: block; overflow: hidden; visibility: hidden; width: 0; height: 0; clear:both;
+}
+
+body .avia-hidden{
+display:none;
+}
+
+.avia-noselect{
+-webkit-touch-callout: none;
+-webkit-user-select: none;
+-khtml-user-select: none;
+-moz-user-select: none;
+-ms-user-select: none;
+user-select: none;
+}
+
+
+/* MEDIA QUERIES*/
+
+
+/* TinyMce Breakpoint (inside modal windows) */
+@media only screen and (max-width: 979px) {
+
+	.avia-modal{
+	left:30px;
+	right:30px;
+	}
+
+}
+
+
+/* All Mobile Sizes (devices and browser) */
+@media only screen and (max-width: 767px) {
+
+	.avia-modal.smallscreen, .avia-modal.flexscreen, .avia-modal.mediumscreen{
+	left: 10%;
+	right: 10%;
+	top:10px;
+	}
+
+
+}
+
+/* Mobile Portrait Size to Mobile Landscape Size (devices and browsers) */
+@media only screen and (max-width: 479px) { 
+	
+	.avia-modal .avia-form-element, .avia-modal .avia-name-description{
+	width:100%;
+	float:none;
+	}
+	
+	
+	
+}
+
+

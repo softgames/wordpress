@@ -8,150 +8,235 @@
 
 @header('Content-Type: ' . get_option('html_type') . '; charset=' . get_option('blog_charset'));
 if ( ! defined( 'WP_ADMIN' ) )
-	require_once( './admin.php' );
+	require_once( dirname( __FILE__ ) . '/admin.php' );
+
+// In case admin-header.php is included in a function.
+global $title, $hook_suffix, $current_screen, $wp_locale, $pagenow, $wp_version,
+	$update_title, $total_update_count, $parent_file;
+
+// Catch plugins that include admin-header.php before admin.php completes.
+if ( empty( $current_screen ) )
+	set_current_screen();
 
 get_admin_page_title();
 $title = esc_html( strip_tags( $title ) );
+
+if ( is_network_admin() )
+	$admin_title = sprintf( __( 'Network Admin: %s' ), esc_html( get_current_site()->site_name ) );
+elseif ( is_user_admin() )
+	$admin_title = sprintf( __( 'Global Dashboard: %s' ), esc_html( get_current_site()->site_name ) );
+else
+	$admin_title = get_bloginfo( 'name' );
+
+if ( $admin_title == $title )
+	$admin_title = sprintf( __( '%1$s &#8212; WordPress' ), $title );
+else
+	$admin_title = sprintf( __( '%1$s &lsaquo; %2$s &#8212; WordPress' ), $title, $admin_title );
+
+/**
+ * Filter the <title> content for an admin page.
+ *
+ * @since 3.1.0
+ *
+ * @param string $admin_title The page title, with extra context added.
+ * @param string $title       The original page title.
+ */
+$admin_title = apply_filters( 'admin_title', $admin_title, $title );
+
 wp_user_settings();
-wp_menu_unfold();
+
+_wp_admin_html_begin();
 ?>
-<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
-<html xmlns="http://www.w3.org/1999/xhtml" <?php do_action('admin_xml_ns'); ?> <?php language_attributes(); ?>>
-<head>
-<meta http-equiv="Content-Type" content="<?php bloginfo('html_type'); ?>; charset=<?php echo get_option('blog_charset'); ?>" />
-<title><?php echo $title; ?> &lsaquo; <?php bloginfo('name') ?>  &#8212; WordPress</title>
+<title><?php echo $admin_title; ?></title>
 <?php
 
-wp_admin_css( 'css/global' );
-wp_admin_css();
-wp_admin_css( 'css/colors' );
-wp_admin_css( 'css/ie' );
-if ( is_multisite() )
-	wp_admin_css( 'css/ms' );
+wp_enqueue_style( 'colors' );
+wp_enqueue_style( 'ie' );
 wp_enqueue_script('utils');
+wp_enqueue_script( 'svg-painter' );
 
 $admin_body_class = preg_replace('/[^a-z0-9_-]+/i', '-', $hook_suffix);
 ?>
 <script type="text/javascript">
-//<![CDATA[
 addLoadEvent = function(func){if(typeof jQuery!="undefined")jQuery(document).ready(func);else if(typeof wpOnload!='function'){wpOnload=func;}else{var oldonload=wpOnload;wpOnload=function(){oldonload();func();}}};
-var userSettings = {
-		'url': '<?php echo SITECOOKIEPATH; ?>',
-		'uid': '<?php if ( ! isset($current_user) ) $current_user = wp_get_current_user(); echo $current_user->ID; ?>',
-		'time':'<?php echo time() ?>'
-	},
-	ajaxurl = '<?php echo admin_url('admin-ajax.php'); ?>',
+var ajaxurl = '<?php echo admin_url( 'admin-ajax.php', 'relative' ); ?>',
 	pagenow = '<?php echo $current_screen->id; ?>',
-	typenow = '<?php if ( isset($current_screen->post_type) ) echo $current_screen->post_type; ?>',
+	typenow = '<?php echo $current_screen->post_type; ?>',
 	adminpage = '<?php echo $admin_body_class; ?>',
 	thousandsSeparator = '<?php echo addslashes( $wp_locale->number_format['thousands_sep'] ); ?>',
 	decimalPoint = '<?php echo addslashes( $wp_locale->number_format['decimal_point'] ); ?>',
 	isRtl = <?php echo (int) is_rtl(); ?>;
-//]]>
 </script>
+<meta name="viewport" content="width=device-width,initial-scale=1.0">
 <?php
 
-if ( in_array( $pagenow, array('post.php', 'post-new.php') ) ) {
-	add_action( 'admin_print_footer_scripts', 'wp_tiny_mce', 25 );
-	wp_enqueue_script('quicktags');
-}
+/**
+ * Enqueue scripts for all admin pages.
+ *
+ * @since 2.8.0
+ *
+ * @param string $hook_suffix The current admin page.
+ */
+do_action( 'admin_enqueue_scripts', $hook_suffix );
 
-do_action('admin_enqueue_scripts', $hook_suffix);
-do_action("admin_print_styles-$hook_suffix");
-do_action('admin_print_styles');
-do_action("admin_print_scripts-$hook_suffix");
-do_action('admin_print_scripts');
-do_action("admin_head-$hook_suffix");
-do_action('admin_head');
+/**
+ * Print styles for a specific admin page based on $hook_suffix.
+ *
+ * @since 2.6.0
+ */
+do_action( "admin_print_styles-$hook_suffix" );
+
+/**
+ * Print styles for all admin pages.
+ *
+ * @since 2.6.0
+ */
+do_action( 'admin_print_styles' );
+
+/**
+ * Print scripts for a specific admin page based on $hook_suffix.
+ *
+ * @since 2.1.0
+ */
+do_action( "admin_print_scripts-$hook_suffix" );
+
+/**
+ * Print scripts for all admin pages.
+ *
+ * @since 2.1.0
+ */
+do_action( 'admin_print_scripts' );
+
+/**
+ * Fires in <head> for a specific admin page based on $hook_suffix.
+ *
+ * @since 2.1.0
+ */
+do_action( "admin_head-$hook_suffix" );
+
+/**
+ * Fires in <head> for all admin pages.
+ *
+ * @since 2.1.0
+ */
+do_action( 'admin_head' );
 
 if ( get_user_setting('mfold') == 'f' )
 	$admin_body_class .= ' folded';
 
-if ( $is_iphone ) { ?>
-<style type="text/css">.row-actions{visibility:visible;}</style>
-<?php } ?>
+if ( !get_user_setting('unfold') )
+	$admin_body_class .= ' auto-fold';
+
+if ( is_admin_bar_showing() )
+	$admin_body_class .= ' admin-bar';
+
+if ( is_rtl() )
+	$admin_body_class .= ' rtl';
+
+if ( $current_screen->post_type )
+	$admin_body_class .= ' post-type-' . $current_screen->post_type;
+
+if ( $current_screen->taxonomy )
+	$admin_body_class .= ' taxonomy-' . $current_screen->taxonomy;
+
+$admin_body_class .= ' branch-' . str_replace( array( '.', ',' ), '-', floatval( $wp_version ) );
+$admin_body_class .= ' version-' . str_replace( '.', '-', preg_replace( '/^([.0-9]+).*/', '$1', $wp_version ) );
+$admin_body_class .= ' admin-color-' . sanitize_html_class( get_user_option( 'admin_color' ), 'fresh' );
+$admin_body_class .= ' locale-' . sanitize_html_class( strtolower( str_replace( '_', '-', get_locale() ) ) );
+
+if ( wp_is_mobile() )
+	$admin_body_class .= ' mobile';
+
+if ( is_multisite() )
+	$admin_body_class .= ' multisite';
+
+if ( is_network_admin() )
+	$admin_body_class .= ' network-admin';
+
+$admin_body_class .= ' no-customize-support no-svg';
+
+?>
 </head>
-<body class="wp-admin no-js <?php echo apply_filters( 'admin_body_class', '' ) . " $admin_body_class"; ?>">
+<?php
+/**
+ * Filter the admin <body> CSS classes.
+ *
+ * This filter differs from the post_class or body_class filters in two important ways:
+ * 1. $classes is a space-separated string of class names instead of an array.
+ * 2. Not all core admin classes are filterable, notably: wp-admin, wp-core-ui, and no-js cannot be removed.
+ *
+ * @since 2.3.0
+ *
+ * @param string $classes Space-separated string of CSS classes.
+ */
+?>
+<body class="wp-admin wp-core-ui no-js <?php echo apply_filters( 'admin_body_class', '' ) . " $admin_body_class"; ?>">
 <script type="text/javascript">
-//<![CDATA[
-(function(){
-var c = document.body.className;
-c = c.replace(/no-js/, 'js');
-document.body.className = c;
-})();
-//]]>
+	document.body.className = document.body.className.replace('no-js','js');
 </script>
 
-<div id="wpwrap">
-<div id="wpcontent">
-<div id="wphead">
 <?php
-$blog_name = get_bloginfo('name', 'display');
-if ( '' == $blog_name ) {
-	$blog_name = '&nbsp;';
-} else {
-	$blog_name_excerpt = wp_html_excerpt($blog_name, 40);
-	if ( $blog_name != $blog_name_excerpt )
-		$blog_name_excerpt = trim($blog_name_excerpt) . '&hellip;';
-	$blog_name = $blog_name_excerpt;
-	unset($blog_name_excerpt);
-}
-$title_class = '';
-if ( function_exists('mb_strlen') ) {
-	if ( mb_strlen($blog_name, 'UTF-8') > 30 )
-		$title_class = 'class="long-title"';
-} else {
-	if ( strlen($blog_name) > 30 )
-		$title_class = 'class="long-title"';
-}
+// Make sure the customize body classes are correct as early as possible.
+if ( current_user_can( 'edit_theme_options' ) )
+	wp_customize_support_script();
 ?>
 
-<img id="header-logo" src="<?php echo esc_url( includes_url( 'images/blank.gif' ) ); ?>" alt="" width="32" height="32" />
-<h1 id="site-heading" <?php echo $title_class ?>>
-	<a href="<?php echo trailingslashit( get_bloginfo( 'url' ) ); ?>" title="<?php esc_attr_e('Visit Site') ?>">
-		<span id="site-title"><?php echo $blog_name ?></span>
-	</a>
-<?php if ( current_user_can('manage_options') && '1' != get_option('blog_public') ): ?>
-	<a id="privacy-on-link" href="options-privacy.php" title="<?php echo esc_attr( apply_filters('privacy_on_link_title', __('Your site is asking search engines not to index its content') ) ); ?>"><?php echo apply_filters('privacy_on_link_text', __('Search Engines Blocked') ); ?></a>
-<?php endif; ?>
-</h1>
+<div id="wpwrap">
+<a tabindex="1" href="#wpbody-content" class="screen-reader-shortcut"><?php _e('Skip to main content'); ?></a>
+<?php require(ABSPATH . 'wp-admin/menu-header.php'); ?>
+<div id="wpcontent">
 
-<?php do_action('in_admin_header'); ?>
-
-<div id="wphead-info">
-<div id="user_info">
-<p><?php
-$links = array();
-$links[5] = sprintf(__('Howdy, <a href="%1$s" title="Edit your profile">%2$s</a>'), 'profile.php', $user_identity);
-$links[15] = '| <a href="' . wp_logout_url() . '" title="' . __('Log Out') . '">' . __('Log Out') . '</a>';
-
-$links = apply_filters('admin_user_info_links', $links, $current_user);
-ksort($links);
-
-echo implode(' ', $links);
-?></p>
-</div>
-
-<?php favorite_actions($current_screen); ?>
-</div>
-</div>
+<?php
+/**
+ * Fires at the beginning of the content section in an admin page.
+ *
+ * @since 3.0.0
+ */
+do_action( 'in_admin_header' );
+?>
 
 <div id="wpbody">
 <?php
-unset($title_class, $blog_name);
+unset($title_class, $blog_name, $total_update_count, $update_title);
 
-require(ABSPATH . 'wp-admin/menu-header.php');
+$current_screen->set_parentage( $parent_file );
 
-$current_screen->parent_file = $parent_file;
-$current_screen->parent_base = preg_replace('/\?.*$/', '', $parent_file);
-$current_screen->parent_base = str_replace('.php', '', $current_screen->parent_base);
 ?>
 
-<div id="wpbody-content">
+<div id="wpbody-content" aria-label="<?php esc_attr_e('Main content'); ?>" tabindex="0">
 <?php
-screen_meta($current_screen);
 
-do_action('admin_notices');
+$current_screen->render_screen_meta();
+
+if ( is_network_admin() ) {
+	/**
+	 * Print network admin screen notices.
+	 *
+	 * @since 3.1.0
+	 */
+	do_action( 'network_admin_notices' );
+} elseif ( is_user_admin() ) {
+	/**
+	 * Print user admin screen notices.
+	 *
+	 * @since 3.1.0
+	 */
+	do_action( 'user_admin_notices' );
+} else {
+	/**
+	 * Print admin screen notices.
+	 *
+	 * @since 3.1.0
+	 */
+	do_action( 'admin_notices' );
+}
+
+/**
+ * Print generic admin screen notices.
+ *
+ * @since 3.1.0
+ */
+do_action( 'all_admin_notices' );
 
 if ( $parent_file == 'options-general.php' )
 	require(ABSPATH . 'wp-admin/options-head.php');

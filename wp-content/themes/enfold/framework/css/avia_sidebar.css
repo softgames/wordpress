@@ -1,0 +1,38 @@
+.sidebar-avia-custom{
+position: relative;
+}
+
+.avia-custom-sidebar-area-delete{
+height:24px;
+width: 24px;
+position: absolute;
+z-index: 100;
+top: 6px;
+right: 32px;
+background: transparent url(../images/icons/icon-trash.png) no-repeat top left;
+}
+
+.avia-custom-sidebar-area-delete:hover{
+background: transparent url(../images/icons/icon-trash.png) no-repeat bottom left;
+cursor: pointer;
+}
+
+.activate_spinner{
+display: block !important;
+position: absolute;
+top: 10px;
+right: 4px;
+background-color: #ECECEC;
+}
+
+.avia-add-widget{
+background-color: #FCFCFC;
+border: 1px solid #DFDFDF;
+padding:10px;
+border-radius: 4px;
+text-align: center;
+margin: 0px 7px;
+}
+
+#wpwrap .avia-add-widget .avia_button{margin-top:15px;}
+.avia-add-widget .avia_style_wrap { max-width: 95%; }

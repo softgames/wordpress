@@ -13,7 +13,7 @@
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.0.0
  *
  * @param unknown_type $cat_name
  * @return unknown
@@ -28,20 +28,21 @@ function category_exists($cat_name, $parent = 0) {
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.0.0
  *
  * @param unknown_type $id
  * @return unknown
  */
 function get_category_to_edit( $id ) {
-	$category = get_category( $id, OBJECT, 'edit' );
+	$category = get_term( $id, 'category', OBJECT, 'edit' );
+	_make_cat_compat( $category );
 	return $category;
 }
 
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.0.0
  *
  * @param unknown_type $cat_name
  * @param unknown_type $parent
@@ -57,7 +58,7 @@ function wp_create_category( $cat_name, $parent = 0 ) {
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.0.0
  *
  * @param unknown_type $categories
  * @param unknown_type $post_id
@@ -80,32 +81,13 @@ function wp_create_categories($categories, $post_id = '') {
 }
 
 /**
- * Deletes one existing category.
- *
- * @since 2.0.0
- *
- * @param int $cat_ID
- * @return mixed Returns true if completes delete action; false if term doesnt exist; Zero on attempted deletion of default Category; WP_Error object is also a possibility.
- */
-function wp_delete_category($cat_ID) {
-	$cat_ID = (int) $cat_ID;
-	$default = get_option('default_category');
-
-	// Don't delete the default cat
-	if ( $cat_ID == $default )
-		return 0;
-
-	return wp_delete_term($cat_ID, 'category', array('default' => $default));
-}
-
-/**
  * Updates an existing Category or creates a new Category.
  *
  * @since 2.0.0
  *
  * @param mixed $catarr See defaults below. Set 'cat_ID' to a non-zero value to update an existing category. The 'taxonomy' key was added in 3.0.0.
  * @param bool $wp_error Optional, since 2.5.0. Set this to true if the caller handles WP_Error return values.
- * @return int|object The ID number of the new or updated Category on success.  Zero or a WP_Error on failure, depending on param $wp_error.
+ * @return int|object The ID number of the new or updated Category on success. Zero or a WP_Error on failure, depending on param $wp_error.
  */
 function wp_insert_category($catarr, $wp_error = false) {
 	$cat_defaults = array('cat_ID' => 0, 'taxonomy' => 'category', 'cat_name' => '', 'category_description' => '', 'category_nicename' => '', 'category_parent' => '');
@@ -136,7 +118,7 @@ function wp_insert_category($catarr, $wp_error = false) {
 	if ( $parent < 0 )
 		$parent = 0;
 
-	if ( empty($parent) || !category_exists( $parent ) || ($cat_ID && cat_is_ancestor_of($cat_ID, $parent) ) )
+	if ( empty( $parent ) || ! term_exists( $parent, $taxonomy ) || ( $cat_ID && term_is_ancestor_of( $cat_ID, $parent, $taxonomy ) ) )
 		$parent = 0;
 
 	$args = compact('name', 'slug', 'parent', 'description');
@@ -164,7 +146,7 @@ function wp_insert_category($catarr, $wp_error = false) {
  *
  * @since 2.0.0
  *
- * @param array $catarr The 'cat_ID' value is required.  All other keys are optional.
+ * @param array $catarr The 'cat_ID' value is required. All other keys are optional.
  * @return int|bool The ID number of the new or updated Category on success. Zero or FALSE on failure.
  */
 function wp_update_category($catarr) {
@@ -174,10 +156,11 @@ function wp_update_category($catarr) {
 		return false;
 
 	// First, get all of the original fields
-	$category = get_category($cat_ID, ARRAY_A);
+	$category = get_term( $cat_ID, 'category', ARRAY_A );
+	_make_cat_compat( $category );
 
 	// Escape data pulled from DB.
-	$category = add_magic_quotes($category);
+	$category = wp_slash($category);
 
 	// Merge old and new fields with new fields overwriting old ones.
 	$catarr = array_merge($category, $catarr);
@@ -192,7 +175,31 @@ function wp_update_category($catarr) {
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.3.0
+ *
+ * @param unknown_type $tag_name
+ * @return unknown
+ */
+function tag_exists($tag_name) {
+	return term_exists($tag_name, 'post_tag');
+}
+
+/**
+ * {@internal Missing Short Description}}
+ *
+ * @since 2.3.0
+ *
+ * @param unknown_type $tag_name
+ * @return unknown
+ */
+function wp_create_tag($tag_name) {
+	return wp_create_term( $tag_name, 'post_tag');
+}
+
+/**
+ * {@internal Missing Short Description}}
+ *
+ * @since 2.3.0
  *
  * @param unknown_type $post_id
  * @return unknown
@@ -204,7 +211,7 @@ function get_tags_to_edit( $post_id, $taxonomy = 'post_tag' ) {
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
+ * @since 2.8.0
  *
  * @param unknown_type $post_id
  * @return unknown
@@ -234,31 +241,7 @@ function get_terms_to_edit( $post_id, $taxonomy = 'post_tag' ) {
 /**
  * {@internal Missing Short Description}}
  *
- * @since unknown
- *
- * @param unknown_type $tag_name
- * @return unknown
- */
-function tag_exists($tag_name) {
-	return term_exists($tag_name, 'post_tag');
-}
-
-/**
- * {@internal Missing Short Description}}
- *
- * @since unknown
- *
- * @param unknown_type $tag_name
- * @return unknown
- */
-function wp_create_tag($tag_name) {
-	return wp_create_term( $tag_name, 'post_tag');
-}
-
-/**
- * {@internal Missing Short Description}}
- *
- * @since unknown
+ * @since 2.8.0
  *
  * @param unknown_type $tag_name
  * @return unknown

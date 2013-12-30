@@ -1,0 +1,20 @@
+defaults:
+  ttl: 1800
+  readonly: false
+  urlencode: false
+  c_threshold: 10000
+  compression: true
+  debug: false
+  namespace: ""
+  sessions: true
+  fragments: true
+  memory: 128
+  servers:
+      - ip-10-190-42-227.ec2.internal:11211
+  benchmarking: true
+  raise_errors: true
+  fast_hash: false
+  fastest_hash: false
+
+production:
+  benchmarking: false

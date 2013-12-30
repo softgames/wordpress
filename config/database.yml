@@ -1,0 +1,10 @@
+
+production:
+  adapter:   mysql
+  database:  'wordpress'
+  username:  'deploy'
+  password:  '5gquuYFa0E'
+  host:      'ec2-54-197-233-89.compute-1.amazonaws.com'
+  reconnect: true
+
+

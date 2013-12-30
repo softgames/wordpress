@@ -7,14 +7,14 @@
  */
 
 /**
- * {@internal Missing Short Description}}
+ * Determine if a comment exists based on author and date.
  *
- * @since unknown
+ * @since 2.0.0
  * @uses $wpdb
  *
- * @param string $comment_author
- * @param string $comment_date
- * @return mixed Comment ID on success.
+ * @param string $comment_author Author of the comment
+ * @param string $comment_date Date of the comment
+ * @return mixed Comment post ID on success.
  */
 function comment_exists($comment_author, $comment_date) {
 	global $wpdb;
@@ -27,23 +27,27 @@ function comment_exists($comment_author, $comment_date) {
 }
 
 /**
- * {@internal Missing Short Description}}
+ * Update a comment with values provided in $_POST.
  *
- * @since unknown
+ * @since 2.0.0
  */
 function edit_comment() {
 
-	$comment_post_ID = (int) $_POST['comment_post_ID'];
+	if ( ! current_user_can( 'edit_comment', (int) $_POST['comment_ID'] ) )
+		wp_die ( __( 'You are not allowed to edit comments on this post.' ) );
 
-	if (!current_user_can( 'edit_post', $comment_post_ID ))
-		wp_die( __('You are not allowed to edit comments on this post, so you cannot edit this comment.' ));
-
-	$_POST['comment_author'] = $_POST['newcomment_author'];
-	$_POST['comment_author_email'] = $_POST['newcomment_author_email'];
-	$_POST['comment_author_url'] = $_POST['newcomment_author_url'];
-	$_POST['comment_approved'] = $_POST['comment_status'];
-	$_POST['comment_content'] = $_POST['content'];
-	$_POST['comment_ID'] = (int) $_POST['comment_ID'];
+	if ( isset( $_POST['newcomment_author'] ) )
+		$_POST['comment_author'] = $_POST['newcomment_author'];
+	if ( isset( $_POST['newcomment_author_email'] ) )
+		$_POST['comment_author_email'] = $_POST['newcomment_author_email'];
+	if ( isset( $_POST['newcomment_author_url'] ) )
+		$_POST['comment_author_url'] = $_POST['newcomment_author_url'];
+	if ( isset( $_POST['comment_status'] ) )
+		$_POST['comment_approved'] = $_POST['comment_status'];
+	if ( isset( $_POST['content'] ) )
+		$_POST['comment_content'] = $_POST['content'];
+	if ( isset( $_POST['comment_ID'] ) )
+		$_POST['comment_ID'] = (int) $_POST['comment_ID'];
 
 	foreach ( array ('aa', 'mm', 'jj', 'hh', 'mn') as $timeunit ) {
 		if ( !empty( $_POST['hidden_' . $timeunit] ) && $_POST['hidden_' . $timeunit] != $_POST[$timeunit] ) {
@@ -52,7 +56,7 @@ function edit_comment() {
 		}
 	}
 
-	if (!empty ( $_POST['edit_date'] ) ) {
+	if ( !empty ( $_POST['edit_date'] ) ) {
 		$aa = $_POST['aa'];
 		$mm = $_POST['mm'];
 		$jj = $_POST['jj'];
@@ -66,16 +70,16 @@ function edit_comment() {
 		$_POST['comment_date'] = "$aa-$mm-$jj $hh:$mn:$ss";
 	}
 
-	wp_update_comment( $_POST);
+	wp_update_comment( $_POST );
 }
 
 /**
- * {@internal Missing Short Description}}
+ * Returns a comment object based on comment ID.
  *
- * @since unknown
+ * @since 2.0.0
  *
- * @param unknown_type $id
- * @return unknown
+ * @param int $id ID of comment to retrieve.
+ * @return bool|object Comment if found. False on failure.
  */
 function get_comment_to_edit( $id ) {
 	if ( !$comment = get_comment($id) )
@@ -85,7 +89,14 @@ function get_comment_to_edit( $id ) {
 	$comment->comment_post_ID = (int) $comment->comment_post_ID;
 
 	$comment->comment_content = format_to_edit( $comment->comment_content );
-	$comment->comment_content = apply_filters( 'comment_edit_pre', $comment->comment_content);
+	/**
+	 * Filter the comment content before editing.
+	 *
+	 * @since 2.0.0
+	 *
+	 * @param string $comment->comment_content Comment content.
+	 */
+	$comment->comment_content = apply_filters( 'comment_edit_pre', $comment->comment_content );
 
 	$comment->comment_author = format_to_edit( $comment->comment_author );
 	$comment->comment_author_email = format_to_edit( $comment->comment_author_email );
@@ -98,7 +109,7 @@ function get_comment_to_edit( $id ) {
 /**
  * Get the number of pending comments on a post or posts
  *
- * @since unknown
+ * @since 2.3.0
  * @uses $wpdb
  *
  * @param int|array $post_id Either a single Post ID or an array of Post IDs
@@ -150,7 +161,7 @@ function get_pending_comments_num( $post_id ) {
  */
 function floated_admin_avatar( $name ) {
 	global $comment;
-	$avatar = get_avatar( $comment, 32 );
+	$avatar = get_avatar( $comment, 32, 'mystery' );
 	return "$avatar $name";
 }
 
@@ -158,10 +169,3 @@ function enqueue_comment_hotkeys_js() {
 	if ( 'true' == get_user_option( 'comment_shortcuts' ) )
 		wp_enqueue_script( 'jquery-table-hotkeys' );
 }
-
-if ( is_admin() && isset($pagenow) && ('edit-comments.php' == $pagenow || 'edit.php' == $pagenow) ) {
-	if ( get_option('show_avatars') )
-		add_filter( 'comment_author', 'floated_admin_avatar' );
-}
-
-?>

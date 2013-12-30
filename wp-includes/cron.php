@@ -22,12 +22,27 @@
 function wp_schedule_single_event( $timestamp, $hook, $args = array()) {
 	// don't schedule a duplicate if there's already an identical event due in the next 10 minutes
 	$next = wp_next_scheduled($hook, $args);
-	if ( $next && $next <= $timestamp + 600 )
+	if ( $next && $next <= $timestamp + 10 * MINUTE_IN_SECONDS )
 		return;
 
 	$crons = _get_cron_array();
-	$key = md5(serialize($args));
-	$crons[$timestamp][$hook][$key] = array( 'schedule' => false, 'args' => $args );
+	$event = (object) array( 'hook' => $hook, 'timestamp' => $timestamp, 'schedule' => false, 'args' => $args );
+	/**
+	 * Filter a single event before it is scheduled.
+	 *
+	 * @since 3.1.0
+	 *
+	 * @param object $event An object containing an event's data.
+	 */
+	$event = apply_filters( 'schedule_event', $event );
+
+	// A plugin disallowed this event
+	if ( ! $event )
+		return false;
+
+	$key = md5(serialize($event->args));
+
+	$crons[$event->timestamp][$event->hook][$key] = array( 'schedule' => $event->schedule, 'args' => $event->args );
 	uksort( $crons, "strnatcasecmp" );
 	_set_cron_array( $crons );
 }
@@ -39,8 +54,10 @@ function wp_schedule_single_event( $timestamp, $hook, $args = array()) {
  * specific interval, specified by you. The action will trigger when someone
  * visits your WordPress site, if the scheduled time has passed.
  *
- * Valid values for the recurrence are hourly, daily and twicedaily.  These can
+ * Valid values for the recurrence are hourly, daily and twicedaily. These can
  * be extended using the cron_schedules filter in wp_get_schedules().
+ *
+ * Use wp_next_scheduled() to prevent duplicates
  *
  * @since 2.1.0
  *
@@ -53,10 +70,21 @@ function wp_schedule_single_event( $timestamp, $hook, $args = array()) {
 function wp_schedule_event( $timestamp, $recurrence, $hook, $args = array()) {
 	$crons = _get_cron_array();
 	$schedules = wp_get_schedules();
-	$key = md5(serialize($args));
+
 	if ( !isset( $schedules[$recurrence] ) )
 		return false;
-	$crons[$timestamp][$hook][$key] = array( 'schedule' => $recurrence, 'args' => $args, 'interval' => $schedules[$recurrence]['interval'] );
+
+	$event = (object) array( 'hook' => $hook, 'timestamp' => $timestamp, 'schedule' => $recurrence, 'args' => $args, 'interval' => $schedules[$recurrence]['interval'] );
+	/** This filter is documented in wp-includes/cron.php */
+	$event = apply_filters( 'schedule_event', $event );
+
+	// A plugin disallowed this event
+	if ( ! $event )
+		return false;
+
+	$key = md5(serialize($event->args));
+
+	$crons[$event->timestamp][$event->hook][$key] = array( 'schedule' => $event->schedule, 'args' => $event->args, 'interval' => $event->interval );
 	uksort( $crons, "strnatcasecmp" );
 	_set_cron_array( $crons );
 }
@@ -90,10 +118,10 @@ function wp_reschedule_event( $timestamp, $recurrence, $hook, $args = array()) {
 
 	$now = time();
 
-    if ( $timestamp >= $now )
-        $timestamp = $now + $interval;
-    else
-        $timestamp = $now + ($interval - (($now - $timestamp) % $interval));
+	if ( $timestamp >= $now )
+		$timestamp = $now + $interval;
+	else
+		$timestamp = $now + ($interval - (($now - $timestamp) % $interval));
 
 	wp_schedule_event( $timestamp, $recurrence, $hook, $args );
 }
@@ -136,12 +164,23 @@ function wp_clear_scheduled_hook( $hook, $args = array() ) {
 	// Backward compatibility
 	// Previously this function took the arguments as discrete vars rather than an array like the rest of the API
 	if ( !is_array($args) ) {
-		_deprecated_argument( __FUNCTION__, '3.0.0', __('This argument has changed to an array to match the behavior of the other cron functions.') );
+		_deprecated_argument( __FUNCTION__, '3.0', __('This argument has changed to an array to match the behavior of the other cron functions.') );
 		$args = array_slice( func_get_args(), 1 );
 	}
 
-	while ( $timestamp = wp_next_scheduled( $hook, $args ) )
-		wp_unschedule_event( $timestamp, $hook, $args );
+	// This logic duplicates wp_next_scheduled()
+	// It's required due to a scenario where wp_unschedule_event() fails due to update_option() failing,
+	// and, wp_next_scheduled() returns the same schedule in an infinite loop.
+	$crons = _get_cron_array();
+	if ( empty( $crons ) )
+		return;
+
+	$key = md5( serialize( $args ) );
+	foreach ( $crons as $timestamp => $cron ) {
+		if ( isset( $cron[ $hook ][ $key ] ) ) {
+			wp_unschedule_event( $timestamp, $hook, $args );
+		}
+	}
 }
 
 /**
@@ -172,33 +211,25 @@ function wp_next_scheduled( $hook, $args = array() ) {
  *
  * @return null Cron could not be spawned, because it is not needed to run.
  */
-function spawn_cron( $local_time = 0 ) {
+function spawn_cron( $gmt_time = 0 ) {
 
-	if ( !$local_time )
-		$local_time = time();
+	if ( ! $gmt_time )
+		$gmt_time = microtime( true );
 
 	if ( defined('DOING_CRON') || isset($_GET['doing_wp_cron']) )
-		return;
-
-	/*
-	 * do not even start the cron if local server timer has drifted
-	 * such as due to power failure, or misconfiguration
-	 */
-	$timer_accurate = check_server_timer( $local_time );
-	if ( !$timer_accurate )
 		return;
 
 	/*
 	* multiple processes on multiple web servers can run this code concurrently
 	* try to make this as atomic as possible by setting doing_cron switch
 	*/
-	$flag = get_transient('doing_cron');
+	$lock = get_transient('doing_cron');
 
-	if ( $flag > $local_time + 10*60 )
-		$flag = 0;
+	if ( $lock > $gmt_time + 10 * MINUTE_IN_SECONDS )
+		$lock = 0;
 
 	// don't run if another process is currently running it or more than once every 60 sec.
-	if ( $flag + 60 > $local_time )
+	if ( $lock + WP_CRON_LOCK_TIMEOUT > $gmt_time )
 		return;
 
 	//sanity check
@@ -207,17 +238,18 @@ function spawn_cron( $local_time = 0 ) {
 		return;
 
 	$keys = array_keys( $crons );
-	if ( isset($keys[0]) && $keys[0] > $local_time )
+	if ( isset($keys[0]) && $keys[0] > $gmt_time )
 		return;
 
 	if ( defined('ALTERNATE_WP_CRON') && ALTERNATE_WP_CRON ) {
 		if ( !empty($_POST) || defined('DOING_AJAX') )
 			return;
 
-		set_transient( 'doing_cron', $local_time );
+		$doing_wp_cron = sprintf( '%.22F', $gmt_time );
+		set_transient( 'doing_cron', $doing_wp_cron );
 
 		ob_start();
-		wp_redirect( add_query_arg('doing_wp_cron', '', stripslashes($_SERVER['REQUEST_URI'])) );
+		wp_redirect( add_query_arg( 'doing_wp_cron', $doing_wp_cron, wp_unslash( $_SERVER['REQUEST_URI'] ) ) );
 		echo ' ';
 
 		// flush any buffers and send the headers
@@ -228,10 +260,40 @@ function spawn_cron( $local_time = 0 ) {
 		return;
 	}
 
-	set_transient( 'doing_cron', $local_time );
+	$doing_wp_cron = sprintf( '%.22F', $gmt_time );
+	set_transient( 'doing_cron', $doing_wp_cron );
 
-	$cron_url = get_option( 'siteurl' ) . '/wp-cron.php?doing_wp_cron';
-	wp_remote_post( $cron_url, array('timeout' => 0.01, 'blocking' => false, 'sslverify' => apply_filters('https_local_ssl_verify', true)) );
+	/**
+	 * Filter the cron request arguments.
+	 *
+	 * @since 3.5.0
+	 *
+	 * @param array $cron_request_array {
+	 *     An array of cron request URL arguments.
+	 *
+	 *     @type string $url  The cron request URL.
+	 *     @type int    $key  The 22 digit GMT microtime.
+	 *     @type array  $args {
+	 *         An array of cron request arguments.
+	 *
+	 *         @type int  $timeout   The request timeout in seconds. Default .01 seconds.
+	 *         @type bool $blocking  Whether to set blocking for the request. Default false.
+	 *         @type bool $sslverify Whether to sslverify. Default true.
+	 *     }
+	 * }
+	 */
+	$cron_request = apply_filters( 'cron_request', array(
+		'url'  => add_query_arg( 'doing_wp_cron', $doing_wp_cron, site_url( 'wp-cron.php' ) ),
+		'key'  => $doing_wp_cron,
+		'args' => array(
+			'timeout'   => 0.01,
+			'blocking'  => false,
+			/** This filter is documented in wp-includes/class-http.php */
+			'sslverify' => apply_filters( 'https_local_ssl_verify', true )
+		)
+	) );
+
+	wp_remote_post( $cron_request['url'], $cron_request['args'] );
 }
 
 /**
@@ -250,18 +312,18 @@ function wp_cron() {
 	if ( false === $crons = _get_cron_array() )
 		return;
 
-	$local_time = time();
+	$gmt_time = microtime( true );
 	$keys = array_keys( $crons );
-	if ( isset($keys[0]) && $keys[0] > $local_time )
+	if ( isset($keys[0]) && $keys[0] > $gmt_time )
 		return;
 
 	$schedules = wp_get_schedules();
 	foreach ( $crons as $timestamp => $cronhooks ) {
-		if ( $timestamp > $local_time ) break;
+		if ( $timestamp > $gmt_time ) break;
 		foreach ( (array) $cronhooks as $hook => $args ) {
 			if ( isset($schedules[$hook]['callback']) && !call_user_func( $schedules[$hook]['callback'] ) )
 				continue;
-			spawn_cron( $local_time );
+			spawn_cron( $gmt_time );
 			break 2;
 		}
 	}
@@ -299,10 +361,17 @@ function wp_cron() {
  */
 function wp_get_schedules() {
 	$schedules = array(
-		'hourly' => array( 'interval' => 3600, 'display' => __('Once Hourly') ),
-		'twicedaily' => array( 'interval' => 43200, 'display' => __('Twice Daily') ),
-		'daily' => array( 'interval' => 86400, 'display' => __('Once Daily') ),
+		'hourly'     => array( 'interval' => HOUR_IN_SECONDS,      'display' => __( 'Once Hourly' ) ),
+		'twicedaily' => array( 'interval' => 12 * HOUR_IN_SECONDS, 'display' => __( 'Twice Daily' ) ),
+		'daily'      => array( 'interval' => DAY_IN_SECONDS,       'display' => __( 'Once Daily' ) ),
 	);
+	/**
+	 * Filter the non-default cron schedules.
+	 *
+	 * @since 2.1.0
+	 *
+	 * @param array $new_schedules An array of non-default cron schedules. Default empty.
+	 */
 	return array_merge( apply_filters( 'cron_schedules', array() ), $schedules );
 }
 
@@ -392,9 +461,4 @@ function _upgrade_cron_array($cron) {
 	$new_cron['version'] = 2;
 	update_option( 'cron', $new_cron );
 	return $new_cron;
-}
-
-// stub for checking server timer accuracy, using outside standard time sources
-function check_server_timer( $local_time ) {
-	return true;
 }

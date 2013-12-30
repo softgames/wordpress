@@ -10,10 +10,6 @@
  * @since 3.0.0
  */
 
-// $base sanity check.
-if ( 'BASE' == $base )
-	die( /*WP_I18N_BASE_ERROR*/'Configuration error in <code>wp-config.php</code>. <code>$base</code> is set to <code>BASE</code> when it should be like <code>/</code> or <code>/blogs/</code>.'/*/WP_I18N_BASE_ERROR*/ );
-
 /** Include Multisite initialization functions */
 require( ABSPATH . WPINC . '/ms-load.php' );
 require( ABSPATH . WPINC . '/ms-default-constants.php' );
@@ -35,7 +31,8 @@ if ( !isset( $current_site ) || !isset( $current_blog ) ) {
 			$domain = substr( $domain, 0, -4 );
 			$_SERVER['HTTP_HOST'] = substr( $_SERVER['HTTP_HOST'], 0, -4 );
 		} else {
-			wp_die( /*WP_I18N_NO_PORT_NUMBER*/'Multisite only works without the port number in the URL.'/*/WP_I18N_NO_PORT_NUMBER*/ );
+			wp_load_translations_early();
+			wp_die( __( 'Multisite only works without the port number in the URL.' ) );
 		}
 	}
 
@@ -59,9 +56,11 @@ if ( !isset( $current_site ) || !isset( $current_blog ) ) {
 			if ( $current_blog )
 				wp_cache_set( 'current_blog_' . $domain, $current_blog, 'site-options' );
 		}
-		if ( $current_blog && $current_blog->site_id != $current_site->id )
+		if ( $current_blog && $current_blog->site_id != $current_site->id ) {
 			$current_site = $wpdb->get_row( $wpdb->prepare( "SELECT * FROM $wpdb->site WHERE id = %d", $current_blog->site_id ) );
-		else
+			if ( ! isset( $current_site->blog_id ) )
+				$current_site->blog_id = $wpdb->get_var( $wpdb->prepare( "SELECT blog_id FROM $wpdb->blogs WHERE domain = %s AND path = %s", $current_site->domain, $current_site->path ) );
+		} else
 			$blogname = substr( $domain, 0, strpos( $domain, '.' ) );
 	} else {
 		$blogname = htmlspecialchars( substr( $_SERVER[ 'REQUEST_URI' ], strlen( $path ) ) );
@@ -78,6 +77,7 @@ if ( !isset( $current_site ) || !isset( $current_blog ) ) {
 			if ( $current_blog )
 				wp_cache_set( 'current_blog_' . $domain . $path, $current_blog, 'site-options' );
 		}
+		unset($reserved_blognames);
 	}
 
 	if ( ! defined( 'WP_INSTALLING' ) && is_subdomain_install() && ! is_object( $current_blog ) ) {
@@ -117,14 +117,17 @@ if ( !isset( $current_site ) || !isset( $current_blog ) ) {
 		if ( defined( 'WP_INSTALLING' ) ) {
 			$current_blog->blog_id = $blog_id = 1;
 		} else {
-			$msg = ! $wpdb->get_var( "SHOW TABLES LIKE '$wpdb->site'" ) ? ' ' . /*WP_I18N_TABLES_MISSING*/'Database tables are missing.'/*/WP_I18N_TABLES_MISSING*/ : '';
-			wp_die( /*WP_I18N_NO_BLOG*/'No site by that name on this system.'/*/WP_I18N_NO_BLOG*/ . $msg );
+			wp_load_translations_early();
+			$msg = ! $wpdb->get_var( "SHOW TABLES LIKE '$wpdb->site'" ) ? ' ' . __( 'Database tables are missing.' ) : '';
+			wp_die( __( 'No site by that name on this system.' ) . $msg );
 		}
 	}
 }
 $wpdb->set_prefix( $table_prefix, false ); // $table_prefix can be set in sunrise.php
 $wpdb->set_blog_id( $current_blog->blog_id, $current_blog->site_id );
 $table_prefix = $wpdb->get_blog_prefix();
+$_wp_switched_stack = array();
+$switched = false;
 
 // need to init cache again after blog_id is set
 wp_start_object_cache();

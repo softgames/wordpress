@@ -1,0 +1,7 @@
+replace sample slider folder
+remove all skins but fullwidth and preview from the new layerslider folder
+
+update layerslider.php file
+
+$GLOBALS['lsPluginPath'] = get_template_directory_uri() . '/config-layerslider/LayerSlider/';
+$GLOBALS['lsAutoUpdateBox'] = false;

@@ -1,16 +1,19 @@
 <?php
 /**
- * File contains all the administration image manipulation functions.
+ * Functions for reading, writing, modifying, and deleting files on the file system.
+ * Includes functionality for theme-specific files as well as operations for uploading,
+ * archiving, and rendering output when necessary.
  *
  * @package WordPress
  * @subpackage Administration
  */
 
 /** The descriptions for theme files. */
-$wp_file_descriptions = array (
+$wp_file_descriptions = array(
 	'index.php' => __( 'Main Index Template' ),
 	'style.css' => __( 'Stylesheet' ),
 	'editor-style.css' => __( 'Visual Editor Stylesheet' ),
+	'editor-style-rtl.css' => __( 'Visual Editor RTL Stylesheet' ),
 	'rtl.css' => __( 'RTL Stylesheet' ),
 	'comments.php' => __( 'Comments' ),
 	'comments-popup.php' => __( 'Popup Comments' ),
@@ -36,15 +39,21 @@ $wp_file_descriptions = array (
 	'my-hacks.php' => __( 'my-hacks.php (legacy hacks support)' ),
 	'.htaccess' => __( '.htaccess (for rewrite rules )' ),
 	// Deprecated files
-	'wp-layout.css' => __( 'Stylesheet' ), 'wp-comments.php' => __( 'Comments Template' ), 'wp-comments-popup.php' => __( 'Popup Comments Template' ));
+	'wp-layout.css' => __( 'Stylesheet' ),
+	'wp-comments.php' => __( 'Comments Template' ),
+	'wp-comments-popup.php' => __( 'Popup Comments Template' ),
+);
 
 /**
- * {@internal Missing Short Description}}
+ * Get the description for standard WordPress theme files and other various standard
+ * WordPress files
  *
- * @since unknown
+ * @since 1.5.0
  *
- * @param unknown_type $file
- * @return unknown
+ * @uses _cleanup_header_comment
+ * @uses $wp_file_descriptions
+ * @param string $file Filesystem path or filename
+ * @return string Description of file from $wp_file_descriptions or basename of $file if description doesn't exist
  */
 function get_file_description( $file ) {
 	global $wp_file_descriptions;
@@ -55,50 +64,33 @@ function get_file_description( $file ) {
 	elseif ( file_exists( $file ) && is_file( $file ) ) {
 		$template_data = implode( '', file( $file ) );
 		if ( preg_match( '|Template Name:(.*)$|mi', $template_data, $name ))
-			return _cleanup_header_comment($name[1]) . ' Page Template';
+			return sprintf( __( '%s Page Template' ), _cleanup_header_comment($name[1]) );
 	}
 
-	return basename( $file );
+	return trim( basename( $file ) );
 }
 
 /**
- * {@internal Missing Short Description}}
+ * Get the absolute filesystem path to the root of the WordPress installation
  *
- * @since unknown
+ * @since 1.5.0
  *
- * @return unknown
+ * @uses get_option
+ * @return string Full filesystem path to the root of the WordPress installation
  */
 function get_home_path() {
 	$home = get_option( 'home' );
 	$siteurl = get_option( 'siteurl' );
-	if ( $home != '' && $home != $siteurl ) {
-	        $wp_path_rel_to_home = str_replace($home, '', $siteurl); /* $siteurl - $home */
-	        $pos = strpos($_SERVER["SCRIPT_FILENAME"], $wp_path_rel_to_home);
-	        $home_path = substr($_SERVER["SCRIPT_FILENAME"], 0, $pos);
+	if ( ! empty( $home ) && 0 !== strcasecmp( $home, $siteurl ) ) {
+		$wp_path_rel_to_home = str_ireplace( $home, '', $siteurl ); /* $siteurl - $home */
+		$pos = strripos( str_replace( '\\', '/', $_SERVER['SCRIPT_FILENAME'] ), trailingslashit( $wp_path_rel_to_home ) );
+		$home_path = substr( $_SERVER['SCRIPT_FILENAME'], 0, $pos );
 		$home_path = trailingslashit( $home_path );
 	} else {
 		$home_path = ABSPATH;
 	}
 
-	return $home_path;
-}
-
-/**
- * {@internal Missing Short Description}}
- *
- * @since unknown
- *
- * @param unknown_type $file
- * @return unknown
- */
-function get_real_file_to_edit( $file ) {
-	if ('index.php' == $file || '.htaccess' == $file ) {
-		$real_file = get_home_path() . $file;
-	} else {
-		$real_file = WP_CONTENT_DIR . $file;
-	}
-
-	return $real_file;
+	return str_replace( '\\', '/', $home_path );
 }
 
 /**
@@ -139,47 +131,11 @@ function list_files( $folder = '', $levels = 100 ) {
 }
 
 /**
- * Determines a writable directory for temporary files.
- * Function's preference is to WP_CONTENT_DIR followed by the return value of <code>sys_get_temp_dir()</code>, before finally defaulting to /tmp/
- *
- * In the event that this function does not find a writable location, It may be overridden by the <code>WP_TEMP_DIR</code> constant in your <code>wp-config.php</code> file.
- *
- * @since 2.5.0
- *
- * @return string Writable temporary directory
- */
-function get_temp_dir() {
-	static $temp;
-	if ( defined('WP_TEMP_DIR') )
-		return trailingslashit(WP_TEMP_DIR);
-
-	if ( $temp )
-		return trailingslashit($temp);
-
-	$temp = WP_CONTENT_DIR . '/';
-	if ( is_dir($temp) && @is_writable($temp) )
-		return $temp;
-
-	if  ( function_exists('sys_get_temp_dir') ) {
-		$temp = sys_get_temp_dir();
-		if ( @is_writable($temp) )
-			return trailingslashit($temp);
-	}
-
-	$temp = ini_get('upload_tmp_dir');
-	if ( is_dir($temp) && @is_writable($temp) )
-		return trailingslashit($temp);
-
-	$temp = '/tmp/';
-	return $temp;
-}
-
-/**
  * Returns a filename of a Temporary unique file.
  * Please note that the calling function must unlink() this itself.
  *
  * The filename is based off the passed parameter or defaults to the current unix timestamp,
- * while the directory can either be passed as well, or by leaving  it blank, default to a writable temporary directory.
+ * while the directory can either be passed as well, or by leaving it blank, default to a writable temporary directory.
  *
  * @since 2.6.0
  *
@@ -201,13 +157,17 @@ function wp_tempnam($filename = '', $dir = '') {
 }
 
 /**
- * {@internal Missing Short Description}}
+ * Make sure that the file that was requested to edit, is allowed to be edited
  *
- * @since unknown
+ * Function will die if if you are not allowed to edit the file
  *
- * @param unknown_type $file
- * @param unknown_type $allowed_files
- * @return unknown
+ * @since 1.5.0
+ *
+ * @uses wp_die
+ * @uses validate_file
+ * @param string $file file the users is attempting to edit
+ * @param array $allowed_files Array of allowed files to edit, $file must match an entry exactly
+ * @return null
  */
 function validate_file_to_edit( $file, $allowed_files = '' ) {
 	$code = validate_file( $file, $allowed_files );
@@ -228,12 +188,22 @@ function validate_file_to_edit( $file, $allowed_files = '' ) {
 }
 
 /**
- * {@internal Missing Short Description}}
+ * Handle PHP uploads in WordPress, sanitizing file names, checking extensions for mime type,
+ * and moving the file to the appropriate directory within the uploads directory.
  *
- * @since unknown
+ * @since 2.0
  *
+ * @uses wp_handle_upload_error
+ * @uses apply_filters
+ * @uses is_multisite
+ * @uses wp_check_filetype_and_ext
+ * @uses current_user_can
+ * @uses wp_upload_dir
+ * @uses wp_unique_filename
+ * @uses delete_transient
  * @param array $file Reference to a single element of $_FILES. Call the function once for each uploaded file.
  * @param array $overrides Optional. An associative array of names=>values to override default variables with extract( $overrides, EXTR_OVERWRITE ).
+ * @param string $time Optional. Time formatted in 'yyyy/mm'.
  * @return array On success, returns an associative array of file attributes. On failure, returns $overrides['upload_error_handler'](&$file, $message ) or array( 'error'=>$message ).
  */
 function wp_handle_upload( &$file, $overrides = false, $time = null ) {
@@ -249,7 +219,7 @@ function wp_handle_upload( &$file, $overrides = false, $time = null ) {
 	// You may define your own function and pass the name in $overrides['upload_error_handler']
 	$upload_error_handler = 'wp_handle_upload_error';
 
-	// You may have had one or more 'wp_handle_upload_prefilter' functions error out the file.  Handle that gracefully.
+	// You may have had one or more 'wp_handle_upload_prefilter' functions error out the file. Handle that gracefully.
 	if ( isset( $file['error'] ) && !is_numeric( $file['error'] ) && $file['error'] )
 		return $upload_error_handler( $file, $file['error'] );
 
@@ -261,8 +231,8 @@ function wp_handle_upload( &$file, $overrides = false, $time = null ) {
 
 	// Courtesy of php.net, the strings that describe the error indicated in $_FILES[{form field}]['error'].
 	$upload_error_strings = array( false,
-		__( "The uploaded file exceeds the <code>upload_max_filesize</code> directive in <code>php.ini</code>." ),
-		__( "The uploaded file exceeds the <em>MAX_FILE_SIZE</em> directive that was specified in the HTML form." ),
+		__( "The uploaded file exceeds the upload_max_filesize directive in php.ini." ),
+		__( "The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form." ),
 		__( "The uploaded file was only partially uploaded." ),
 		__( "No file was uploaded." ),
 		'',
@@ -270,7 +240,7 @@ function wp_handle_upload( &$file, $overrides = false, $time = null ) {
 		__( "Failed to write file to disk." ),
 		__( "File upload stopped by extension." ));
 
-	// All tests are on by default. Most can be turned off by $override[{test_name}] = false;
+	// All tests are on by default. Most can be turned off by $overrides[{test_name}] = false;
 	$test_form = true;
 	$test_size = true;
 	$test_upload = true;
@@ -315,7 +285,7 @@ function wp_handle_upload( &$file, $overrides = false, $time = null ) {
 			$file['name'] = $proper_filename;
 
 		if ( ( !$type || !$ext ) && !current_user_can( 'unfiltered_upload' ) )
-			return call_user_func($upload_error_handler, $file, __( 'File type does not meet security guidelines. Try another.' ));
+			return call_user_func($upload_error_handler, $file, __( 'Sorry, this file type is not permitted for security reasons.' ));
 
 		if ( !$ext )
 			$ext = ltrim(strrchr($file['name'], '.'), '.');
@@ -334,8 +304,14 @@ function wp_handle_upload( &$file, $overrides = false, $time = null ) {
 
 	// Move the file to the uploads dir
 	$new_file = $uploads['path'] . "/$filename";
-	if ( false === @ move_uploaded_file( $file['tmp_name'], $new_file ) )
-		return $upload_error_handler( $file, sprintf( __('The uploaded file could not be moved to %s.' ), $uploads['path'] ) );
+	if ( false === @ move_uploaded_file( $file['tmp_name'], $new_file ) ) {
+		if ( 0 === strpos( $uploads['basedir'], ABSPATH ) )
+			$error_path = str_replace( ABSPATH, '', $uploads['basedir'] ) . $uploads['subdir'];
+		else
+			$error_path = basename( $uploads['basedir'] ) . $uploads['subdir'];
+
+		return $upload_error_handler( $file, sprintf( __('The uploaded file could not be moved to %s.' ), $error_path ) );
+	}
 
 	// Set correct file permissions
 	$stat = stat( dirname( $new_file ));
@@ -352,17 +328,24 @@ function wp_handle_upload( &$file, $overrides = false, $time = null ) {
 }
 
 /**
- * {@internal Missing Short Description}}
+ * Handle sideloads, which is the process of retrieving a media item from another server instead of
+ * a traditional media upload. This process involves sanitizing the filename, checking extensions
+ * for mime type, and moving the file to the appropriate directory within the uploads directory.
  *
- * Pass this function an array similar to that of a $_FILES POST array.
+ * @since 2.6.0
  *
- * @since unknown
- *
- * @param unknown_type $file
- * @param unknown_type $overrides
- * @return unknown
+ * @uses wp_handle_upload_error
+ * @uses apply_filters
+ * @uses wp_check_filetype_and_ext
+ * @uses current_user_can
+ * @uses wp_upload_dir
+ * @uses wp_unique_filename
+ * @param array $file an array similar to that of a PHP $_FILES POST array
+ * @param array $overrides Optional. An associative array of names=>values to override default variables with extract( $overrides, EXTR_OVERWRITE ).
+ * @param string $time Optional. Time formatted in 'yyyy/mm'.
+ * @return array On success, returns an associative array of file attributes. On failure, returns $overrides['upload_error_handler'](&$file, $message ) or array( 'error'=>$message ).
  */
-function wp_handle_sideload( &$file, $overrides = false ) {
+function wp_handle_sideload( &$file, $overrides = false, $time = null ) {
 	// The default error handler.
 	if (! function_exists( 'wp_handle_upload_error' ) ) {
 		function wp_handle_upload_error( &$file, $message ) {
@@ -390,7 +373,7 @@ function wp_handle_sideload( &$file, $overrides = false ) {
 		__( "Failed to write file to disk." ),
 		__( "File upload stopped by extension." ));
 
-	// All tests are on by default. Most can be turned off by $override[{test_name}] = false;
+	// All tests are on by default. Most can be turned off by $overrides[{test_name}] = false;
 	$test_form = true;
 	$test_size = true;
 
@@ -429,7 +412,7 @@ function wp_handle_sideload( &$file, $overrides = false ) {
 			$file['name'] = $proper_filename;
 
 		if ( ( !$type || !$ext ) && !current_user_can( 'unfiltered_upload' ) )
-			return $upload_error_handler( $file, __( 'File type does not meet security guidelines. Try another.' ));
+			return $upload_error_handler( $file, __( 'Sorry, this file type is not permitted for security reasons.' ));
 
 		if ( !$ext )
 			$ext = ltrim(strrchr($file['name'], '.'), '.');
@@ -439,7 +422,7 @@ function wp_handle_sideload( &$file, $overrides = false ) {
 	}
 
 	// A writable uploads dir will pass this test. Again, there's no point overriding this one.
-	if ( ! ( ( $uploads = wp_upload_dir() ) && false === $uploads['error'] ) )
+	if ( ! ( ( $uploads = wp_upload_dir( $time ) ) && false === $uploads['error'] ) )
 		return $upload_error_handler( $file, $uploads['error'] );
 
 	$filename = wp_unique_filename( $uploads['path'], $file['name'], $unique_filename_callback );
@@ -451,7 +434,11 @@ function wp_handle_sideload( &$file, $overrides = false ) {
 	// Move the file to the uploads dir
 	$new_file = $uploads['path'] . "/$filename";
 	if ( false === @ rename( $file['tmp_name'], $new_file ) ) {
-		return $upload_error_handler( $file, sprintf( __('The uploaded file could not be moved to %s.' ), $uploads['path'] ) );
+		if ( 0 === strpos( $uploads['basedir'], ABSPATH ) )
+			$error_path = str_replace( ABSPATH, '', $uploads['basedir'] ) . $uploads['subdir'];
+		else
+			$error_path = basename( $uploads['basedir'] ) . $uploads['subdir'];
+		return $upload_error_handler( $file, sprintf( __('The uploaded file could not be moved to %s.' ), $error_path ) );
 	}
 
 	// Set correct file permissions
@@ -469,14 +456,15 @@ function wp_handle_sideload( &$file, $overrides = false ) {
 
 /**
  * Downloads a url to a local temporary file using the WordPress HTTP Class.
- * Please note, That the calling function must unlink() the  file.
+ * Please note, That the calling function must unlink() the file.
  *
  * @since 2.5.0
  *
  * @param string $url the URL of the file to download
+ * @param int $timeout The timeout for the request to download the file default 300 seconds
  * @return mixed WP_Error on failure, string Filename on success.
  */
-function download_url( $url ) {
+function download_url( $url, $timeout = 300 ) {
 	//WARNING: The file is not automatically deleted, The script must unlink() the file.
 	if ( ! $url )
 		return new WP_Error('http_no_url', __('Invalid URL Provided.'));
@@ -485,32 +473,57 @@ function download_url( $url ) {
 	if ( ! $tmpfname )
 		return new WP_Error('http_no_file', __('Could not create Temporary file.'));
 
-	$handle = @fopen($tmpfname, 'wb');
-	if ( ! $handle )
-		return new WP_Error('http_no_file', __('Could not create Temporary file.'));
+	$response = wp_safe_remote_get( $url, array( 'timeout' => $timeout, 'stream' => true, 'filename' => $tmpfname ) );
 
-	$response = wp_remote_get($url, array('timeout' => 300));
-
-	if ( is_wp_error($response) ) {
-		fclose($handle);
-		unlink($tmpfname);
+	if ( is_wp_error( $response ) ) {
+		unlink( $tmpfname );
 		return $response;
 	}
 
-	if ( $response['response']['code'] != '200' ){
-		fclose($handle);
-		unlink($tmpfname);
-		return new WP_Error('http_404', trim($response['response']['message']));
+	if ( 200 != wp_remote_retrieve_response_code( $response ) ){
+		unlink( $tmpfname );
+		return new WP_Error( 'http_404', trim( wp_remote_retrieve_response_message( $response ) ) );
 	}
 
-	fwrite($handle, $response['body']);
-	fclose($handle);
+	$content_md5 = wp_remote_retrieve_header( $response, 'content-md5' );
+	if ( $content_md5 ) {
+		$md5_check = verify_file_md5( $tmpfname, $content_md5 );
+		if ( is_wp_error( $md5_check ) ) {
+			unlink( $tmpfname );
+			return $md5_check;
+		}
+	}
 
 	return $tmpfname;
 }
 
 /**
- * Unzip's a specified ZIP file to a location on the Filesystem via the WordPress Filesystem Abstraction.
+ * Calculates and compares the MD5 of a file to it's expected value.
+ *
+ * @since 3.7.0
+ *
+ * @param string $filename The filename to check the MD5 of.
+ * @param string $expected_md5 The expected MD5 of the file, either a base64 encoded raw md5, or a hex-encoded md5
+ * @return bool|object WP_Error on failure, true on success, false when the MD5 format is unknown/unexpected
+ */
+function verify_file_md5( $filename, $expected_md5 ) {
+	if ( 32 == strlen( $expected_md5 ) )
+		$expected_raw_md5 = pack( 'H*', $expected_md5 );
+	elseif ( 24 == strlen( $expected_md5 ) )
+		$expected_raw_md5 = base64_decode( $expected_md5 );
+	else
+		return false; // unknown format
+
+	$file_md5 = md5_file( $filename, true );
+
+	if ( $file_md5 === $expected_raw_md5 )
+		return true;
+
+	return new WP_Error( 'md5_mismatch', sprintf( __( 'The checksum of the file (%1$s) does not match the expected checksum value (%2$s).' ), bin2hex( $file_md5 ), bin2hex( $expected_raw_md5 ) ) );
+}
+
+/**
+ * Unzips a specified ZIP file to a location on the Filesystem via the WordPress Filesystem Abstraction.
  * Assumes that WP_Filesystem() has already been called and set up. Does not extract a root-level __MACOSX directory, if present.
  *
  * Attempts to increase the PHP Memory limit to 256M before uncompressing,
@@ -529,7 +542,7 @@ function unzip_file($file, $to) {
 		return new WP_Error('fs_unavailable', __('Could not access filesystem.'));
 
 	// Unzip can use a lot of memory, but not this much hopefully
-	@ini_set('memory_limit', '256M');
+	@ini_set( 'memory_limit', apply_filters( 'admin_memory_limit', WP_MAX_MEMORY_LIMIT ) );
 
 	$needed_dirs = array();
 	$to = trailingslashit($to);
@@ -583,22 +596,36 @@ function _unzip_file_ziparchive($file, $to, $needed_dirs = array() ) {
 
 	$z = new ZipArchive();
 
-	// PHP4-compat - php4 classes can't contain constants
-	$zopen = $z->open($file, /* ZIPARCHIVE::CHECKCONS */ 4);
+	$zopen = $z->open( $file, ZIPARCHIVE::CHECKCONS );
 	if ( true !== $zopen )
-		return new WP_Error('incompatible_archive', __('Incompatible Archive.'));
+		return new WP_Error( 'incompatible_archive', __( 'Incompatible Archive.' ), array( 'ziparchive_error' => $zopen ) );
+
+	$uncompressed_size = 0;
 
 	for ( $i = 0; $i < $z->numFiles; $i++ ) {
 		if ( ! $info = $z->statIndex($i) )
-			return new WP_Error('stat_failed', __('Could not retrieve file from archive.'));
+			return new WP_Error( 'stat_failed_ziparchive', __( 'Could not retrieve file from archive.' ) );
 
 		if ( '__MACOSX/' === substr($info['name'], 0, 9) ) // Skip the OS X-created __MACOSX directory
 			continue;
+
+		$uncompressed_size += $info['size'];
 
 		if ( '/' == substr($info['name'], -1) ) // directory
 			$needed_dirs[] = $to . untrailingslashit($info['name']);
 		else
 			$needed_dirs[] = $to . untrailingslashit(dirname($info['name']));
+	}
+
+	/*
+	 * disk_free_space() could return false. Assume that any falsey value is an error.
+	 * A disk that has zero free bytes has bigger problems.
+	 * Require we have enough space to unzip the file and copy its contents, with a 10% buffer.
+	 */
+	if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
+		$available_space = @disk_free_space( WP_CONTENT_DIR );
+		if ( $available_space && ( $uncompressed_size * 2.1 ) > $available_space )
+			return new WP_Error( 'disk_full_unzip_file', __( 'Could not copy files. You may have run out of disk space.' ), compact( 'uncompressed_size', 'available_space' ) );
 	}
 
 	$needed_dirs = array_unique($needed_dirs);
@@ -620,13 +647,13 @@ function _unzip_file_ziparchive($file, $to, $needed_dirs = array() ) {
 	// Create those directories if need be:
 	foreach ( $needed_dirs as $_dir ) {
 		if ( ! $wp_filesystem->mkdir($_dir, FS_CHMOD_DIR) && ! $wp_filesystem->is_dir($_dir) ) // Only check to see if the Dir exists upon creation failure. Less I/O this way.
-			return new WP_Error('mkdir_failed', __('Could not create directory.'), $_dir);
+			return new WP_Error( 'mkdir_failed_ziparchive', __( 'Could not create directory.' ), substr( $_dir, strlen( $to ) ) );
 	}
 	unset($needed_dirs);
 
 	for ( $i = 0; $i < $z->numFiles; $i++ ) {
 		if ( ! $info = $z->statIndex($i) )
-			return new WP_Error('stat_failed', __('Could not retrieve file from archive.'));
+			return new WP_Error( 'stat_failed_ziparchive', __( 'Could not retrieve file from archive.' ) );
 
 		if ( '/' == substr($info['name'], -1) ) // directory
 			continue;
@@ -636,10 +663,10 @@ function _unzip_file_ziparchive($file, $to, $needed_dirs = array() ) {
 
 		$contents = $z->getFromIndex($i);
 		if ( false === $contents )
-			return new WP_Error('extract_failed', __('Could not extract file from archive.'), $info['name']);
+			return new WP_Error( 'extract_failed_ziparchive', __( 'Could not extract file from archive.' ), $info['name'] );
 
 		if ( ! $wp_filesystem->put_contents( $to . $info['name'], $contents, FS_CHMOD_FILE) )
-			return new WP_Error('copy_failed', __('Could not copy file.'), $to . $info['filename']);
+			return new WP_Error( 'copy_failed_ziparchive', __( 'Could not copy file.' ), $info['name'] );
 	}
 
 	$z->close();
@@ -663,23 +690,44 @@ function _unzip_file_ziparchive($file, $to, $needed_dirs = array() ) {
 function _unzip_file_pclzip($file, $to, $needed_dirs = array()) {
 	global $wp_filesystem;
 
+	mbstring_binary_safe_encoding();
+
 	require_once(ABSPATH . 'wp-admin/includes/class-pclzip.php');
 
 	$archive = new PclZip($file);
 
+	$archive_files = $archive->extract(PCLZIP_OPT_EXTRACT_AS_STRING);
+
+	reset_mbstring_encoding();
+
 	// Is the archive valid?
-	if ( false == ($archive_files = $archive->extract(PCLZIP_OPT_EXTRACT_AS_STRING)) )
+	if ( !is_array($archive_files) )
 		return new WP_Error('incompatible_archive', __('Incompatible Archive.'), $archive->errorInfo(true));
 
 	if ( 0 == count($archive_files) )
-		return new WP_Error('empty_archive', __('Empty archive.'));
+		return new WP_Error( 'empty_archive_pclzip', __( 'Empty archive.' ) );
+
+	$uncompressed_size = 0;
 
 	// Determine any children directories needed (From within the archive)
 	foreach ( $archive_files as $file ) {
 		if ( '__MACOSX/' === substr($file['filename'], 0, 9) ) // Skip the OS X-created __MACOSX directory
 			continue;
 
+		$uncompressed_size += $file['size'];
+
 		$needed_dirs[] = $to . untrailingslashit( $file['folder'] ? $file['filename'] : dirname($file['filename']) );
+	}
+
+	/*
+	 * disk_free_space() could return false. Assume that any falsey value is an error.
+	 * A disk that has zero free bytes has bigger problems.
+	 * Require we have enough space to unzip the file and copy its contents, with a 10% buffer.
+	 */
+	if ( defined( 'DOING_CRON' ) && DOING_CRON ) {
+		$available_space = @disk_free_space( WP_CONTENT_DIR );
+		if ( $available_space && ( $uncompressed_size * 2.1 ) > $available_space )
+			return new WP_Error( 'disk_full_unzip_file', __( 'Could not copy files. You may have run out of disk space.' ), compact( 'uncompressed_size', 'available_space' ) );
 	}
 
 	$needed_dirs = array_unique($needed_dirs);
@@ -700,8 +748,9 @@ function _unzip_file_pclzip($file, $to, $needed_dirs = array()) {
 
 	// Create those directories if need be:
 	foreach ( $needed_dirs as $_dir ) {
-		if ( ! $wp_filesystem->mkdir($_dir, FS_CHMOD_DIR) && ! $wp_filesystem->is_dir($_dir) ) // Only check to see if the dir exists upon creation failure. Less I/O this way.
-			return new WP_Error('mkdir_failed', __('Could not create directory.'), $_dir);
+		// Only check to see if the dir exists upon creation failure. Less I/O this way.
+		if ( ! $wp_filesystem->mkdir( $_dir, FS_CHMOD_DIR ) && ! $wp_filesystem->is_dir( $_dir ) )
+			return new WP_Error( 'mkdir_failed_pclzip', __( 'Could not create directory.' ), substr( $_dir, strlen( $to ) ) );
 	}
 	unset($needed_dirs);
 
@@ -714,7 +763,7 @@ function _unzip_file_pclzip($file, $to, $needed_dirs = array()) {
 			continue;
 
 		if ( ! $wp_filesystem->put_contents( $to . $file['filename'], $file['content'], FS_CHMOD_FILE) )
-			return new WP_Error('copy_failed', __('Could not copy file.'), $to . $file['filename']);
+			return new WP_Error( 'copy_failed_pclzip', __( 'Could not copy file.' ), $file['filename'] );
 	}
 	return true;
 }
@@ -727,9 +776,10 @@ function _unzip_file_pclzip($file, $to, $needed_dirs = array()) {
  *
  * @param string $from source directory
  * @param string $to destination directory
+ * @param array $skip_list a list of files/folders to skip copying
  * @return mixed WP_Error on failure, True on success.
  */
-function copy_dir($from, $to) {
+function copy_dir($from, $to, $skip_list = array() ) {
 	global $wp_filesystem;
 
 	$dirlist = $wp_filesystem->dirlist($from);
@@ -738,20 +788,30 @@ function copy_dir($from, $to) {
 	$to = trailingslashit($to);
 
 	foreach ( (array) $dirlist as $filename => $fileinfo ) {
+		if ( in_array( $filename, $skip_list ) )
+			continue;
+
 		if ( 'f' == $fileinfo['type'] ) {
-			if ( ! $wp_filesystem->copy($from . $filename, $to . $filename, true) ) {
+			if ( ! $wp_filesystem->copy($from . $filename, $to . $filename, true, FS_CHMOD_FILE) ) {
 				// If copy failed, chmod file to 0644 and try again.
-				$wp_filesystem->chmod($to . $filename, 0644);
-				if ( ! $wp_filesystem->copy($from . $filename, $to . $filename, true) )
-					return new WP_Error('copy_failed', __('Could not copy file.'), $to . $filename);
+				$wp_filesystem->chmod( $to . $filename, FS_CHMOD_FILE );
+				if ( ! $wp_filesystem->copy($from . $filename, $to . $filename, true, FS_CHMOD_FILE) )
+					return new WP_Error( 'copy_failed_copy_dir', __( 'Could not copy file.' ), $to . $filename );
 			}
-			$wp_filesystem->chmod($to . $filename, FS_CHMOD_FILE);
 		} elseif ( 'd' == $fileinfo['type'] ) {
 			if ( !$wp_filesystem->is_dir($to . $filename) ) {
 				if ( !$wp_filesystem->mkdir($to . $filename, FS_CHMOD_DIR) )
-					return new WP_Error('mkdir_failed', __('Could not create directory.'), $to . $filename);
+					return new WP_Error( 'mkdir_failed_copy_dir', __( 'Could not create directory.' ), $to . $filename );
 			}
-			$result = copy_dir($from . $filename, $to . $filename);
+
+			// generate the $sub_skip_list for the subdirectory as a sub-set of the existing $skip_list
+			$sub_skip_list = array();
+			foreach ( $skip_list as $skip_item ) {
+				if ( 0 === strpos( $skip_item, $filename . '/' ) )
+					$sub_skip_list[] = preg_replace( '!^' . preg_quote( $filename, '!' ) . '/!i', '', $skip_item );
+			}
+
+			$result = copy_dir($from . $filename, $to . $filename, $sub_skip_list);
 			if ( is_wp_error($result) )
 				return $result;
 		}
@@ -802,20 +862,20 @@ function WP_Filesystem( $args = false, $context = false ) {
 		return false;
 
 	if ( !$wp_filesystem->connect() )
-		return false; //There was an erorr connecting to the server.
+		return false; //There was an error connecting to the server.
 
 	// Set the permission constants if not already set.
 	if ( ! defined('FS_CHMOD_DIR') )
-		define('FS_CHMOD_DIR', 0755 );
+		define('FS_CHMOD_DIR', ( fileperms( ABSPATH ) & 0777 | 0755 ) );
 	if ( ! defined('FS_CHMOD_FILE') )
-		define('FS_CHMOD_FILE', 0644 );
+		define('FS_CHMOD_FILE', ( fileperms( ABSPATH . 'index.php' ) & 0777 | 0644 ) );
 
 	return true;
 }
 
 /**
  * Determines which Filesystem Method to use.
- * The priority of the Transports are: Direct, SSH2, FTP PHP Extension, FTP Sockets (Via Sockets class, or fsoxkopen())
+ * The priority of the Transports are: Direct, SSH2, FTP PHP Extension, FTP Sockets (Via Sockets class, or fsockopen())
  *
  * Note that the return value of this function can be overridden in 2 ways
  *  - By defining FS_METHOD in your <code>wp-config.php</code> file
@@ -835,6 +895,11 @@ function get_filesystem_method($args = array(), $context = false) {
 	if ( ! $method && function_exists('getmyuid') && function_exists('fileowner') ){
 		if ( !$context )
 			$context = WP_CONTENT_DIR;
+
+		// If the directory doesn't exist (wp-content/languages) then use the parent directory as we'll create it.
+		if ( WP_LANG_DIR == $context && ! is_dir( $context ) )
+			$context = dirname( $context );
+
 		$context = trailingslashit($context);
 		$temp_file_name = $context . 'temp-write-test-' . time();
 		$temp_handle = @fopen($temp_file_name, 'w');
@@ -853,7 +918,7 @@ function get_filesystem_method($args = array(), $context = false) {
 }
 
 /**
- * Displays a form to the user to request for their FTP/SSH details in order to  connect to the filesystem.
+ * Displays a form to the user to request for their FTP/SSH details in order to connect to the filesystem.
  * All chosen/entered details are saved, Excluding the Password.
  *
  * Hostnames may be in the form of hostname:portnumber (eg: wordpress.org:2467) to specify an alternate FTP/SSH port.
@@ -865,7 +930,7 @@ function get_filesystem_method($args = array(), $context = false) {
  * @param string $form_post the URL to post the form to
  * @param string $type the chosen Filesystem method in use
  * @param boolean $error if the current request has failed to connect
- * @param string $context The directory which is needed access to, The write-test will be performed on  this directory by get_filesystem_method()
+ * @param string $context The directory which is needed access to, The write-test will be performed on this directory by get_filesystem_method()
  * @param string $extra_fields Extra POST fields which should be checked for to be included in the post.
  * @return boolean False on failure. True on success.
  */
@@ -886,13 +951,13 @@ function request_filesystem_credentials($form_post, $type = '', $error = false, 
 	$credentials = get_option('ftp_credentials', array( 'hostname' => '', 'username' => ''));
 
 	// If defined, set it to that, Else, If POST'd, set it to that, If not, Set it to whatever it previously was(saved details in option)
-	$credentials['hostname'] = defined('FTP_HOST') ? FTP_HOST : (!empty($_POST['hostname']) ? stripslashes($_POST['hostname']) : $credentials['hostname']);
-	$credentials['username'] = defined('FTP_USER') ? FTP_USER : (!empty($_POST['username']) ? stripslashes($_POST['username']) : $credentials['username']);
-	$credentials['password'] = defined('FTP_PASS') ? FTP_PASS : (!empty($_POST['password']) ? stripslashes($_POST['password']) : '');
+	$credentials['hostname'] = defined('FTP_HOST') ? FTP_HOST : (!empty($_POST['hostname']) ? wp_unslash( $_POST['hostname'] ) : $credentials['hostname']);
+	$credentials['username'] = defined('FTP_USER') ? FTP_USER : (!empty($_POST['username']) ? wp_unslash( $_POST['username'] ) : $credentials['username']);
+	$credentials['password'] = defined('FTP_PASS') ? FTP_PASS : (!empty($_POST['password']) ? wp_unslash( $_POST['password'] ) : '');
 
 	// Check to see if we are setting the public/private keys for ssh
-	$credentials['public_key'] = defined('FTP_PUBKEY') ? FTP_PUBKEY : (!empty($_POST['public_key']) ? stripslashes($_POST['public_key']) : '');
-	$credentials['private_key'] = defined('FTP_PRIKEY') ? FTP_PRIKEY : (!empty($_POST['private_key']) ? stripslashes($_POST['private_key']) : '');
+	$credentials['public_key'] = defined('FTP_PUBKEY') ? FTP_PUBKEY : (!empty($_POST['public_key']) ? wp_unslash( $_POST['public_key'] ) : '');
+	$credentials['private_key'] = defined('FTP_PRIKEY') ? FTP_PRIKEY : (!empty($_POST['private_key']) ? wp_unslash( $_POST['private_key'] ) : '');
 
 	//sanitize the hostname, Some people might pass in odd-data:
 	$credentials['hostname'] = preg_replace('|\w+://|', '', $credentials['hostname']); //Strip any schemes off
@@ -910,8 +975,8 @@ function request_filesystem_credentials($form_post, $type = '', $error = false, 
 	else if ( (defined('FTP_SSL') && FTP_SSL) && 'ftpext' == $type ) //Only the FTP Extension understands SSL
 		$credentials['connection_type'] = 'ftps';
 	else if ( !empty($_POST['connection_type']) )
-		$credentials['connection_type'] = stripslashes($_POST['connection_type']);
-	else if ( !isset($credentials['connection_type']) ) //All else fails (And its not defaulted to something else saved), Default to FTP
+		$credentials['connection_type'] = wp_unslash( $_POST['connection_type'] );
+	else if ( !isset($credentials['connection_type']) ) //All else fails (And it's not defaulted to something else saved), Default to FTP
 		$credentials['connection_type'] = 'ftp';
 
 	if ( ! $error &&
@@ -934,10 +999,10 @@ function request_filesystem_credentials($form_post, $type = '', $error = false, 
 	if ( !empty($credentials) )
 		extract($credentials, EXTR_OVERWRITE);
 	if ( $error ) {
-		$error_string = __('<strong>Error:</strong> There was an error connecting to the server, Please verify the settings are correct.');
+		$error_string = __('<strong>ERROR:</strong> There was an error connecting to the server, Please verify the settings are correct.');
 		if ( is_wp_error($error) )
-			$error_string = $error->get_error_message();
-		echo '<div id="message" class="error"><p>' . esc_html( $error_string ) . '</p></div>';
+			$error_string = esc_html( $error->get_error_message() );
+		echo '<div id="message" class="error"><p>' . $error_string . '</p></div>';
 	}
 
 	$types = array();
@@ -964,14 +1029,13 @@ jQuery(function($){
 });
 -->
 </script>
-<form action="<?php echo $form_post ?>" method="post">
-<div class="wrap">
-<?php screen_icon(); ?>
-<h2><?php _e('Connection Information') ?></h2>
+<form action="<?php echo esc_url( $form_post ) ?>" method="post">
+<div>
+<h3><?php _e('Connection Information') ?></h3>
 <p><?php
 	$label_user = __('Username');
 	$label_pass = __('Password');
-	_e('To perform the requested action, WordPress needs to access to your web server.');
+	_e('To perform the requested action, WordPress needs to access your web server.');
 	echo ' ';
 	if ( ( isset( $types['ftp'] ) || isset( $types['ftps'] ) ) ) {
 		if ( isset( $types['ssh'] ) ) {
@@ -1000,7 +1064,8 @@ jQuery(function($){
 
 <tr valign="top">
 <th scope="row"><label for="password"><?php echo $label_pass; ?></label></th>
-<td><input name="password" type="password" id="password" value="<?php if ( defined('FTP_PASS') ) echo '*****'; ?>"<?php disabled( defined('FTP_PASS') ); ?> size="40" /></td>
+<td><div><input name="password" type="password" id="password" value="<?php if ( defined('FTP_PASS') ) echo '*****'; ?>"<?php disabled( defined('FTP_PASS') ); ?> size="40" /></div>
+<div><em><?php if ( ! defined('FTP_PASS') ) _e( 'This password will not be stored on the server.' ); ?></em></div></td>
 </tr>
 
 <?php if ( isset($types['ssh']) ) : ?>
@@ -1035,16 +1100,12 @@ jQuery(function($){
 <?php
 foreach ( (array) $extra_fields as $field ) {
 	if ( isset( $_POST[ $field ] ) )
-		echo '<input type="hidden" name="' . esc_attr( $field ) . '" value="' . esc_attr( stripslashes( $_POST[ $field ] ) ) . '" />';
+		echo '<input type="hidden" name="' . esc_attr( $field ) . '" value="' . esc_attr( wp_unslash( $_POST[ $field ] ) ) . '" />';
 }
+submit_button( __( 'Proceed' ), 'button', 'upgrade' );
 ?>
-<p class="submit">
-<input id="upgrade" name="upgrade" type="submit" class="button" value="<?php esc_attr_e('Proceed'); ?>" />
-</p>
 </div>
 </form>
 <?php
 	return false;
 }
-
-?>
